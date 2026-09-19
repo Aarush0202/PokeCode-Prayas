@@ -21,6 +21,9 @@ importers:
         specifier: ^3.10.1
         version: 3.10.1(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react-is@19.3.0)(react@19.3.0)(redux@5.0.1)
     devDependencies:
+      '@rolldown/binding-win32-x64-msvc':
+        specifier: ^1.2.9
+        version: 1.2.9
       '@types/node':
         specifier: ^24.13.3
         version: 24.13.5
@@ -772,8 +775,7 @@ snapshots:
   '@rolldown/binding-win32-arm64-msvc@1.2.9':
     optional: true
 
-  '@rolldown/binding-win32-x64-msvc@1.2.9':
-    optional: true
+  '@rolldown/binding-win32-x64-msvc@1.2.9': {}
 
   '@rolldown/pluginutils@1.0.1': {}
 
