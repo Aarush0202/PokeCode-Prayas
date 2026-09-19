@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-19T16:26:50.640794+00:00",
+  "generated_at": "2026-09-19T18:34:53.762754+00:00",
   "n_train_venues": 100,
   "evaluation": "held-out places (group split) + held-out named places",
   "disclaimer": "Ground truth comes from the same synthetic generator; results show the pipeline recovers category behaviour, not real-world accuracy.",
@@ -14,36 +14,36 @@
     },
     "synthetic_generator": "100 procedurally generated venues across 6 categories in IST"
   },
-  "overall_mae_pct_capacity": 6.48,
+  "overall_mae_pct_capacity": 6.77,
   "baseline_mae_pct_capacity": {
-    "global_mean": 22.24,
-    "category_hour_mean": 9.63
+    "global_mean": 22.28,
+    "category_hour_mean": 10.02
   },
   "by_category": {
     "market": {
-      "mae_pct_capacity": 5.84,
+      "mae_pct_capacity": 5.9,
       "n_places": 2
     },
     "transit_hub": {
-      "mae_pct_capacity": 7.64,
+      "mae_pct_capacity": 7.55,
       "n_places": 2
     },
     "religious_site": {
-      "mae_pct_capacity": 6.65,
+      "mae_pct_capacity": 5.39,
       "n_places": 1
     },
     "campus_ground": {
-      "mae_pct_capacity": 5.3,
+      "mae_pct_capacity": 5.09,
       "n_places": 1
     },
     "food_street": {
-      "mae_pct_capacity": 9.05,
+      "mae_pct_capacity": 10.89,
       "n_places": 2
     },
     "public_square": {
-      "mae_pct_capacity": 3.89,
+      "mae_pct_capacity": 4.29,
       "n_places": 2
     }
   },
-  "ablation_no_category_mae_pct_capacity": 13.02
+  "ablation_no_category_mae_pct_capacity": 13.13
 }

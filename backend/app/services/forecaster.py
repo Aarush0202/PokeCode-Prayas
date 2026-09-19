@@ -657,3 +657,136 @@ def baseline_ratio_series(zone: Any, timestamps: List[datetime]) -> List[float]:
         ratios.append(ratio)
 
     return ratios
+
+
+_cached_footfall_df: Optional[pd.DataFrame] = None
+
+
+def get_footfall_df() -> pd.DataFrame:
+    """Lazy loader for combined footfall dataset from footfall_train.csv and footfall_heldout.csv."""
+    global _cached_footfall_df
+    if _cached_footfall_df is not None:
+        return _cached_footfall_df
+
+    base_dir = Path(__file__).resolve().parent.parent.parent
+    data_dir = base_dir / "data"
+
+    dfs = []
+    for filename in ["footfall_train.csv", "footfall_heldout.csv"]:
+        filepath = data_dir / filename
+        if filepath.exists():
+            try:
+                dfs.append(pd.read_csv(filepath))
+            except Exception as exc:
+                logger.warning("Error loading %s: %s", filepath, exc)
+
+    if not dfs:
+        _cached_footfall_df = pd.DataFrame(columns=["zone_id", "day_of_week", "timestamp", "hour", "footfall"])
+        return _cached_footfall_df
+
+    df = pd.concat(dfs, ignore_index=True)
+    if "zone_id" not in df.columns and "place_id" in df.columns:
+        df["zone_id"] = df["place_id"]
+    if "day_of_week" not in df.columns and "dow" in df.columns:
+        df["day_of_week"] = df["dow"]
+    if "timestamp" not in df.columns and "timestamp_ist" in df.columns:
+        df["timestamp"] = df["timestamp_ist"]
+    if "footfall" not in df.columns:
+        if "occupancy_ratio" in df.columns and "capacity" in df.columns:
+            df["footfall"] = (df["occupancy_ratio"] * df["capacity"]).round()
+        else:
+            df["footfall"] = 0.0
+
+    _cached_footfall_df = df
+    return _cached_footfall_df
+
+
+def predict_next_weekday_pattern(df: pd.DataFrame, zone_id: str, target_weekday: int, n_last: int = 10):
+    """Averages the last n_last occurrences of target_weekday (0=Mon...6=Sun) for one zone.
+    Returns a DataFrame indexed by hour with columns: mean, std, count."""
+    sub = df.copy()
+
+    zone_col = "zone_id" if "zone_id" in sub.columns else ("place_id" if "place_id" in sub.columns else None)
+    dow_col = "day_of_week" if "day_of_week" in sub.columns else ("dow" if "dow" in sub.columns else None)
+    ts_col = "timestamp" if "timestamp" in sub.columns else ("timestamp_ist" if "timestamp_ist" in sub.columns else None)
+
+    if zone_col and zone_col != "zone_id":
+        sub["zone_id"] = sub[zone_col]
+    if dow_col and dow_col != "day_of_week":
+        sub["day_of_week"] = sub[dow_col]
+    if ts_col and ts_col != "timestamp":
+        sub["timestamp"] = sub[ts_col]
+    if "footfall" not in sub.columns:
+        if "occupancy_ratio" in sub.columns and "capacity" in sub.columns:
+            sub["footfall"] = (sub["occupancy_ratio"] * sub["capacity"]).round()
+        else:
+            sub["footfall"] = 0.0
+
+    sub = sub[(sub["zone_id"] == zone_id) & (sub["day_of_week"] == target_weekday)].copy()
+    sub["date"] = pd.to_datetime(sub["timestamp"]).dt.date
+    recent_dates = sorted(sub["date"].unique())[-n_last:]
+    insufficient = len(recent_dates) < n_last
+    recent = sub[sub["date"].isin(recent_dates)]
+    pattern = recent.groupby("hour")["footfall"].agg(["mean", "std", "count"])
+    return pattern, insufficient, len(recent_dates)
+
+
+def predict_full_week(df: pd.DataFrame, zone_id: str, n_last: int = 10) -> dict:
+    """Runs the seasonal-naive prediction for every day of the week.
+    Returns {weekday_name: {"pattern": DataFrame, "insufficient_history": bool, "n_samples": int}}."""
+    result = {}
+    for wd in range(7):
+        pattern, insufficient, n = predict_next_weekday_pattern(df, zone_id, wd, n_last)
+        result[WEEKDAY_NAMES[wd]] = {
+            "pattern": pattern,
+            "insufficient_history": insufficient,
+            "n_samples": n,
+        }
+    return result
+
+
+def get_week_pattern(zone_id: str, n_last: int = 10) -> Optional[Dict[str, Any]]:
+    """Return seasonal-naive week pattern structure for GET /api/v1/forecast/{zone_id}/week-pattern endpoint."""
+    df = get_footfall_df()
+    zone = resolve_zone(zone_id)
+    known_zones = df["zone_id"].unique() if "zone_id" in df.columns else []
+
+    if zone is None and zone_id not in known_zones:
+        return None
+
+    raw_week = predict_full_week(df, zone_id, n_last=n_last)
+    week_pattern_out = {}
+
+    for day_name, day_info in raw_week.items():
+        pattern_df = day_info["pattern"]
+        insufficient = day_info["insufficient_history"]
+        hourly_list = []
+
+        for hr in range(24):
+            if hr in pattern_df.index:
+                row = pattern_df.loc[hr]
+                mean_val = float(row["mean"]) if not math.isnan(row["mean"]) else 0.0
+                std_val = float(row["std"]) if not math.isnan(row["std"]) else 0.0
+                n_samples_val = int(row["count"]) if not math.isnan(row["count"]) else 0
+            else:
+                mean_val, std_val, n_samples_val = 0.0, 0.0, 0
+
+            hourly_list.append({
+                "hour": hr,
+                "mean": round(mean_val, 1),
+                "std": round(std_val, 1),
+                "n_samples": n_samples_val,
+            })
+
+        week_pattern_out[day_name] = {
+            "hourly": hourly_list,
+            "insufficient_history": insufficient,
+        }
+
+    return {
+        "zone_id": zone_id,
+        "n_last_requested": n_last,
+        "week_pattern": week_pattern_out,
+        "disclaimer": "Seasonal-naive baseline: averages the last N historical occurrences of each weekday from footfall_train.csv. No ML model involved.",
+    }
+

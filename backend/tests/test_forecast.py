@@ -243,3 +243,68 @@ def test_baseline_ratio_series_ml_and_fallback(monkeypatch):
             assert 0.0 <= r <= 1.0
         assert ratios_fb[1] > ratios_fb[2]
 
+
+def test_week_pattern_returns_200_and_all_days():
+    """GET /forecast/z3/week-pattern returns 200 with all 7 weekday keys present, each with 24 hourly entries."""
+    response = client.get("/api/v1/forecast/z3/week-pattern")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["zone_id"] == "z3"
+    assert data["n_last_requested"] == 10
+    assert "week_pattern" in data
+    assert "disclaimer" in data
+
+    week_pattern = data["week_pattern"]
+    expected_days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    assert set(week_pattern.keys()) == set(expected_days)
+
+    for day in expected_days:
+        day_info = week_pattern[day]
+        assert "hourly" in day_info
+        assert "insufficient_history" in day_info
+        hourly = day_info["hourly"]
+        assert len(hourly) == 24
+        for hr_idx, entry in enumerate(hourly):
+            assert entry["hour"] == hr_idx
+            assert "mean" in entry
+            assert "std" in entry
+            assert "n_samples" in entry
+            assert isinstance(entry["mean"], (int, float))
+            assert isinstance(entry["std"], (int, float))
+            assert isinstance(entry["n_samples"], int)
+
+
+def test_week_pattern_n_samples_matches_history_count():
+    """Each weekday's n_samples matches actual historical occurrences, capped at n_last."""
+    response = client.get("/api/v1/forecast/z3/week-pattern?n_last=5")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["n_last_requested"] == 5
+
+    week_pattern = data["week_pattern"]
+    for day_name, day_info in week_pattern.items():
+        assert day_info["insufficient_history"] is False
+        for entry in day_info["hourly"]:
+            assert entry["n_samples"] == 5
+
+
+def test_week_pattern_insufficient_history_when_n_last_exceeds_available():
+    """Requesting n_last larger than available history sets insufficient_history: true and doesn't crash."""
+    response = client.get("/api/v1/forecast/z3/week-pattern?n_last=15")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["n_last_requested"] == 15
+
+    week_pattern = data["week_pattern"]
+    for day_name, day_info in week_pattern.items():
+        assert day_info["insufficient_history"] is True
+        for entry in day_info["hourly"]:
+            assert entry["n_samples"] in (8, 9)
+
+
+def test_week_pattern_unknown_zone_returns_404():
+    """GET /api/v1/forecast/unknown_zone_123/week-pattern returns 404."""
+    response = client.get("/api/v1/forecast/unknown_zone_123/week-pattern")
+    assert response.status_code == 404
+
+
