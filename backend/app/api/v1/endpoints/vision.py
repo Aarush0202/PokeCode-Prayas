@@ -1,7 +1,7 @@
 """CrowdGuard Vision API endpoints."""
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
@@ -19,7 +19,9 @@ router = APIRouter()
 
 class VisionSimulateRequest(BaseModel):
     zone_id: str = Field(..., description="Target zone identifier (e.g. z1, z2, z3, z4)")
-    person_count: int = Field(..., ge=0, description="Simulated count of people in the zone")
+    count: Optional[int] = Field(None, ge=0, description="Simulated count of people in the zone")
+    person_count: Optional[int] = Field(None, ge=0, description="Alias for count (backward compatibility)")
+    occluded: bool = Field(default=False, description="Simulate camera blind spot / occlusion with low count")
 
 
 class VisionHistoryResponse(BaseModel):
@@ -61,24 +63,36 @@ async def analyze_crowd_image(
 
 @router.post("/simulate", response_model=VisionAnalyzeResponse, summary="Simulate vision reading")
 def simulate_vision_reading(payload: VisionSimulateRequest):
-    """Simulate a vision reading for testing and dashboard demo without running the CV model."""
+    """Simulate a vision reading for testing, demo, or camera blind-spot scenarios."""
     if payload.zone_id not in ZONE_BY_ID:
         raise HTTPException(
             status_code=400,
             detail=f"Unknown zone_id '{payload.zone_id}'. Valid zones are: {list(ZONE_BY_ID.keys())}",
         )
 
+    # Resolve count from count or person_count
+    if payload.count is not None:
+        effective_count = payload.count
+    elif payload.person_count is not None:
+        effective_count = payload.person_count
+    else:
+        effective_count = 35 if payload.occluded else 100
+
+    # If explicitly occluded and high count given, scale down to simulate blind spot
+    if payload.occluded and effective_count > 60:
+        effective_count = max(15, int(effective_count * 0.25))
+
     zone = ZONE_BY_ID[payload.zone_id]
-    density_per_sqm = round(payload.person_count / zone.area_sqm, 4)
+    density_per_sqm = round(effective_count / zone.area_sqm, 4)
     timestamp = store.utcnow()
 
     response = VisionAnalyzeResponse(
         zone_id=payload.zone_id,
         timestamp=timestamp,
-        person_count=payload.person_count,
+        person_count=effective_count,
         density_per_sqm=density_per_sqm,
         flow=Flow(dx=0.0, dy=0.0, magnitude=0.0),
-        confidence=1.0,
+        confidence=0.95 if not payload.occluded else 0.45,
         annotated_image_b64=None,
         model_name="mock",
         mocked=True,
