@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { EventItem } from '../types/crowdguard';
 import { getEvents } from '../services/api';
-import { Calendar, Users, MapPin, Tag } from 'lucide-react';
+import { Calendar, Users, MapPin, Tag, HelpCircle } from 'lucide-react';
 
 interface EventTimelineProps {
   zoneMap: Record<string, string>;
@@ -102,69 +102,100 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ zoneMap }) => {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {dayEvents.map((evt) => (
-                  <div
-                    key={evt.id}
-                    style={{
-                      backgroundColor: 'var(--bg-surface)',
-                      border: '1px solid var(--border-subtle)',
-                      borderRadius: 'var(--radius-sm)',
-                      padding: '12px 16px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: '12px',
-                    }}
-                  >
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                          {evt.title}
-                        </span>
-                        <span
-                          style={{
-                            fontSize: '0.72rem',
-                            backgroundColor: 'rgba(255, 255, 255, 0.06)',
-                            padding: '2px 8px',
-                            borderRadius: 'var(--radius-full)',
-                            color: 'var(--text-muted)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                          }}
-                        >
-                          <Tag size={10} />
-                          {evt.category}
-                        </span>
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <MapPin size={12} />
-                          <span>{evt.venue}</span>
+                {dayEvents.map((evt) => {
+                  const isIllustrative = evt.source === 'assumed' || evt.is_illustrative === true;
+                  return (
+                    <div
+                      key={evt.id}
+                      style={{
+                        backgroundColor: isIllustrative ? 'rgba(245, 158, 11, 0.03)' : 'var(--bg-surface)',
+                        border: isIllustrative ? '1px dashed rgba(245, 158, 11, 0.5)' : '1px solid var(--border-subtle)',
+                        borderRadius: 'var(--radius-sm)',
+                        padding: '12px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '12px',
+                        transition: 'border-color var(--transition-fast)',
+                      }}
+                    >
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                            {evt.title}
+                          </span>
+                          {isIllustrative && (
+                            <span
+                              title="Assumed scenario, not a confirmed event"
+                              style={{
+                                fontSize: '0.70rem',
+                                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                                color: 'var(--tier-elevated)',
+                                border: '1px solid rgba(245, 158, 11, 0.35)',
+                                padding: '1px 7px',
+                                borderRadius: 'var(--radius-full)',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                fontWeight: 600,
+                                cursor: 'help',
+                              }}
+                            >
+                              <HelpCircle size={10} />
+                              Illustrative
+                            </span>
+                          )}
+                          <span
+                            style={{
+                              fontSize: '0.72rem',
+                              backgroundColor: 'rgba(255, 255, 255, 0.06)',
+                              padding: '2px 8px',
+                              borderRadius: 'var(--radius-full)',
+                              color: 'var(--text-muted)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <Tag size={10} />
+                            {evt.category}
+                          </span>
                         </div>
-                        {evt.zone_id && (
-                          <div>
-                            Impacted Zone: <strong style={{ color: 'var(--text-secondary)' }}>{zoneMap[evt.zone_id] ?? evt.zone_id}</strong>
+
+                        {isIllustrative && (
+                          <div style={{ fontSize: '0.74rem', color: 'var(--tier-elevated)', marginTop: '3px', fontStyle: 'italic' }}>
+                            Assumed scenario, not a confirmed event
                           </div>
                         )}
-                        <div>Source: {evt.source}</div>
-                      </div>
-                    </div>
 
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }} className="num-tabular">
-                        {formatEventTime(evt.start_time)}
-                        {evt.end_time ? ` – ${formatEventTime(evt.end_time)}` : ''}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <MapPin size={12} />
+                            <span>{evt.venue}</span>
+                          </div>
+                          {evt.zone_id && (
+                            <div>
+                              Impacted Zone: <strong style={{ color: 'var(--text-secondary)' }}>{zoneMap[evt.zone_id] ?? evt.zone_id}</strong>
+                            </div>
+                          )}
+                          <div>Source: {evt.source}</div>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                        <Users size={12} />
-                        <span className="num-tabular">{evt.expected_attendance.toLocaleString()}</span> expected
+
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)' }} className="num-tabular">
+                          {formatEventTime(evt.start_time)}
+                          {evt.end_time ? ` – ${formatEventTime(evt.end_time)}` : ''}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                          <Users size={12} />
+                          <span className="num-tabular">{evt.expected_attendance.toLocaleString()}</span> expected
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -173,3 +204,4 @@ export const EventTimeline: React.FC<EventTimelineProps> = ({ zoneMap }) => {
     </div>
   );
 };
+

@@ -5,6 +5,12 @@ import type {
   ForecastResponse,
   EventsResponse,
   VisionAnalyzeResponse,
+  ForecastMetricsResponse,
+  PlannerAssessRequest,
+  PlannerAssessResponse,
+  PlannerParseResponse,
+  BeaconSignal,
+  VisionSignal,
 } from '../types/crowdguard';
 import {
   FIXTURE_ZONES,
@@ -12,6 +18,9 @@ import {
   getMockAlerts,
   getMockForecast,
   getMockEvents,
+  getMockForecastMetrics,
+  getMockPlannerAssess,
+  getMockPlannerParse,
   mockAnalyzeFrame,
   mockSimulateVision,
   mockIngestBeacon,
@@ -65,7 +74,10 @@ export async function getZones(): Promise<Zone[]> {
     const res = await fetchWithTimeout(`${API_BASE_URL}/v1/zones`);
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     degradedMode = false;
-    return await res.json();
+    const data = await res.json();
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.zones)) return data.zones;
+    return FIXTURE_ZONES;
   } catch (err) {
     console.warn('[CrowdGuard API] getZones failed, falling back to fixtures:', err);
     degradedMode = true;
@@ -248,3 +260,134 @@ export async function checkBackendHealth(): Promise<BackendHealth> {
     return { status: 'unreachable', latencyMs };
   }
 }
+
+export async function getForecastMetrics(): Promise<ForecastMetricsResponse | null> {
+  if (MOCK) {
+    await delay(120);
+    return getMockForecastMetrics();
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/forecast/metrics`);
+    if (!res.ok) {
+      return getMockForecastMetrics();
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn('[CrowdGuard API] getForecastMetrics failed, falling back to mock metrics:', err);
+    return getMockForecastMetrics();
+  }
+}
+
+export async function assessEvent(req: PlannerAssessRequest): Promise<PlannerAssessResponse> {
+  if (MOCK) {
+    await delay(250);
+    return getMockPlannerAssess(req);
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/planner/assess`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    degradedMode = false;
+    return await res.json();
+  } catch (err) {
+    console.warn('[CrowdGuard API] assessEvent failed, using mock engine:', err);
+    degradedMode = true;
+    return getMockPlannerAssess(req);
+  }
+}
+
+export async function parseEventText(text: string): Promise<PlannerParseResponse> {
+  if (MOCK) {
+    await delay(300);
+    return getMockPlannerParse(text);
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/planner/parse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    degradedMode = false;
+    return await res.json();
+  } catch (err) {
+    console.warn('[CrowdGuard API] parseEventText failed, using local parser:', err);
+    return getMockPlannerParse(text);
+  }
+}
+
+export async function getLatestBeacon(zoneId: string): Promise<BeaconSignal | null> {
+  if (MOCK) return null;
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/beacons/latest/${zoneId}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function getBeaconHistory(zoneId: string, limit: number = 50): Promise<BeaconSignal[]> {
+  if (MOCK) return [];
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/beacons/history/${zoneId}?limit=${limit}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.readings || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getLatestVision(zoneId: string): Promise<VisionSignal | null> {
+  if (MOCK) return null;
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/vision/latest/${zoneId}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function getVisionHistory(zoneId: string, limit: number = 50): Promise<VisionSignal[]> {
+  if (MOCK) return [];
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/vision/history/${zoneId}?limit=${limit}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.readings || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getZonePressure(zoneId: string, windowHours: number = 3): Promise<{ pressure: number } | null> {
+  if (MOCK) return { pressure: 0.35 };
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/forecast/${zoneId}/pressure?window_hours=${windowHours}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function refreshEvents(): Promise<{ success: boolean; refreshed: number }> {
+  if (MOCK) return { success: true, refreshed: 4 };
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/events/refresh`, { method: 'POST' });
+    if (!res.ok) return { success: false, refreshed: 0 };
+    return await res.json();
+  } catch {
+    return { success: false, refreshed: 0 };
+  }
+}
+
+

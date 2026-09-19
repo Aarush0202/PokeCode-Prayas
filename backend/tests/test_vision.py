@@ -141,3 +141,25 @@ def test_vision_history_limit_and_order():
     # Check oldest-first ordering: 40, 50, 60, 70, 80
     counts = [r["person_count"] for r in readings]
     assert counts == [40, 50, 60, 70, 80]
+
+
+def test_simulate_occluded_and_risk_live():
+    """7. POST /api/v1/vision/simulate with occluded=True records camera reading and reflects in /risk/live/z3."""
+    response = client.post(
+        "/api/v1/vision/simulate",
+        json={"zone_id": "z3", "count": 40, "occluded": True},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["zone_id"] == "z3"
+    assert data["person_count"] == 40
+    assert data["mocked"] is True
+
+    # Confirm /risk/live/z3 reflects camera reading
+    risk_resp = client.get("/api/v1/risk/live/z3")
+    assert risk_resp.status_code == 200
+    risk_data = risk_resp.json()
+    assert risk_data["zone_id"] == "z3"
+    assert risk_data["vision"] is not None
+    assert risk_data["vision"]["person_count"] == 40
+

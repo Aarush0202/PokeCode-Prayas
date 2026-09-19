@@ -29,7 +29,7 @@ _mock: bool = os.getenv("CROWDGUARD_MOCK_VISION", "0") == "1"
 def get_model():
     """Lazily load YOLOv8n model if not mocked."""
     global _model, _mock
-    if _mock:
+    if os.getenv("CROWDGUARD_MOCK_VISION", "0") == "1" or _mock:
         return None
     if _model is not None:
         return _model

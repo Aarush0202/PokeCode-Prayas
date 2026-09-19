@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import type { ZoneRisk } from '../types/crowdguard';
-import { Camera, Radio, AlertCircle } from 'lucide-react';
+import { Camera, Radio, AlertCircle, TrendingUp } from 'lucide-react';
 import { RiskScoreExplainer } from './RiskScoreExplainer';
 
 interface ZoneCardProps {
@@ -16,12 +16,28 @@ export const ZoneCard: React.FC<ZoneCardProps> = memo(({
   isHighestRisk,
   onSelect,
 }) => {
-  const occupancyPercent = Math.min(100, Math.round((zone.fused_estimate / zone.capacity) * 100));
+  const isForecastOnly =
+    zone.has_live_signals === false ||
+    zone.signal_status === 'none' ||
+    !['z1', 'z2', 'z3', 'z4'].includes(zone.zone_id);
+
+  const isNoData =
+    !isForecastOnly &&
+    (zone.signal_status === 'stale' ||
+      zone.level === 'no_data' ||
+      zone.level === 'NO_DATA' ||
+      zone.risk_tier === 'no_data' ||
+      zone.risk_tier === 'NO_DATA');
+
+  const occupancyPercent = isForecastOnly || isNoData
+    ? 0
+    : Math.min(100, Math.round((zone.fused_estimate / zone.capacity) * 100));
 
   const hasCamera = Boolean(zone.vision);
   const hasBeacon = Boolean(zone.beacon);
 
   const getTierColor = (tier: string) => {
+    if (isForecastOnly || isNoData) return 'var(--text-muted)';
     switch (tier) {
       case 'CRITICAL': return 'var(--tier-critical)';
       case 'HIGH': return 'var(--tier-high)';
@@ -31,6 +47,7 @@ export const ZoneCard: React.FC<ZoneCardProps> = memo(({
   };
 
   const getTierBorder = (tier: string) => {
+    if (isForecastOnly || isNoData) return 'var(--border-active)';
     switch (tier) {
       case 'CRITICAL': return 'var(--tier-critical-border)';
       case 'HIGH': return 'var(--tier-high-border)';
@@ -47,18 +64,21 @@ export const ZoneCard: React.FC<ZoneCardProps> = memo(({
       onClick={() => onSelect(zone.zone_id)}
       role="button"
       tabIndex={0}
+      className={isNoData ? 'zone-card-no_data' : ''}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onSelect(zone.zone_id);
         }
       }}
-      aria-label={`Zone ${zone.zone_name}, Tier ${zone.risk_tier}, estimated occupancy ${zone.fused_estimate} out of ${zone.capacity}`}
+      aria-label={`Zone ${zone.zone_name}, ${isForecastOnly ? 'Forecast only' : isNoData ? 'No data' : `Tier ${zone.risk_tier}`}`}
       style={{
-        backgroundColor: isHighestRisk ? 'var(--bg-card-highlight)' : 'var(--bg-card)',
+        backgroundColor: isHighestRisk && !isForecastOnly && !isNoData ? 'var(--bg-card-highlight)' : 'var(--bg-card)',
         borderRadius: 'var(--radius-md)',
-        border: `1.5px solid ${isSelected ? tierColor : tierBorder}`,
-        padding: isHighestRisk ? '20px 24px' : '16px 20px',
+        border: isForecastOnly || isNoData
+          ? `1.5px dashed ${isSelected ? 'var(--text-primary)' : tierBorder}`
+          : `1.5px solid ${isSelected ? tierColor : tierBorder}`,
+        padding: isHighestRisk && !isForecastOnly && !isNoData ? '20px 24px' : '16px 20px',
         cursor: 'pointer',
         transition: 'border-color var(--transition-tier), background-color var(--transition-tier), box-shadow var(--transition-tier)',
         display: 'flex',
@@ -67,7 +87,7 @@ export const ZoneCard: React.FC<ZoneCardProps> = memo(({
         position: 'relative',
         boxShadow: isSelected
           ? `0 0 0 1px ${tierColor}, 0 8px 24px rgba(0,0,0,0.5)`
-          : isHighestRisk
+          : isHighestRisk && !isForecastOnly && !isNoData
             ? '0 6px 20px rgba(0,0,0,0.4)'
             : '0 2px 8px rgba(0,0,0,0.3)',
       }}
@@ -77,83 +97,169 @@ export const ZoneCard: React.FC<ZoneCardProps> = memo(({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h3 style={{ fontSize: isHighestRisk ? '1.25rem' : '1.05rem', margin: 0, fontWeight: 700 }}>
+              <h3 style={{ fontSize: isHighestRisk && !isForecastOnly && !isNoData ? '1.25rem' : '1.05rem', margin: 0, fontWeight: 700 }}>
                 {zone.zone_name}
               </h3>
-              {isHighestRisk && (
+              {isHighestRisk && !isForecastOnly && !isNoData && (
                 <span style={{ fontSize: '0.7rem', color: tierColor, fontWeight: 700, letterSpacing: '0.05em' }}>
                   PRIORITY
                 </span>
               )}
             </div>
             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
-              {zone.zone_name} — <span className="num-tabular">{zone.fused_estimate}</span> estimated, capacity <span className="num-tabular">{zone.capacity}</span>
+              {zone.zone_name} — capacity <span className="num-tabular">{zone.capacity.toLocaleString()}</span>
             </div>
           </div>
 
-          <span className={`tier-badge tier-${zone.risk_tier}`}>
-            {zone.risk_tier}
-          </span>
+          {/* Badge: NEVER render a risk tier for forecast-only named places */}
+          {isForecastOnly ? (
+            <span className="tier-badge tier-no_data" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <TrendingUp size={11} />
+              FORECAST ONLY
+            </span>
+          ) : isNoData ? (
+            <span className="tier-badge tier-no_data">
+              {zone.signal_status === 'stale' ? 'SENSORS OFFLINE' : 'NO DATA'}
+            </span>
+          ) : (
+            <span className={`tier-badge tier-${zone.risk_tier}`}>
+              {zone.risk_tier}
+            </span>
+          )}
         </div>
 
         {/* Live occupancy display */}
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', margin: '16px 0 12px 0' }}>
-          <span
-            className="num-tabular"
-            style={{
-              fontSize: isHighestRisk ? '2.8rem' : '2.1rem',
-              fontWeight: 800,
-              lineHeight: 1,
-              color: 'var(--text-primary)',
-            }}
-          >
-            {zone.fused_estimate}
-          </span>
-          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-            / <span className="num-tabular">{zone.capacity}</span> ({occupancyPercent}%)
-          </span>
-          <span style={{ marginLeft: 'auto', fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span>Risk Score: <strong style={{ color: tierColor }} className="num-tabular">{(zone.risk_score * 100).toFixed(0)}</strong>/100</span>
-            <RiskScoreExplainer zone={zone} />
-          </span>
+          {isForecastOnly ? (
+            <>
+              <span
+                style={{
+                  fontSize: '2.1rem',
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  color: 'var(--text-muted)',
+                }}
+              >
+                —
+              </span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                / {zone.capacity.toLocaleString()} (Forecast Only)
+              </span>
+              <span style={{ marginLeft: 'auto', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                No physical sensors
+              </span>
+            </>
+          ) : isNoData ? (
+            <>
+              <span
+                style={{
+                  fontSize: '2.1rem',
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  color: 'var(--text-muted)',
+                }}
+              >
+                —
+              </span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>
+                / {zone.capacity.toLocaleString()} (No Data)
+              </span>
+              <span style={{ marginLeft: 'auto', fontSize: '0.78rem', color: 'var(--tier-elevated)', fontWeight: 600 }}>
+                Sensors Offline
+              </span>
+            </>
+          ) : (
+            <>
+              <span
+                className="num-tabular"
+                style={{
+                  fontSize: isHighestRisk ? '2.8rem' : '2.1rem',
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  color: 'var(--text-primary)',
+                }}
+              >
+                {zone.fused_estimate}
+              </span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                / <span className="num-tabular">{zone.capacity}</span> ({occupancyPercent}%)
+              </span>
+              <span style={{ marginLeft: 'auto', fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span>Risk Score: <strong style={{ color: tierColor }} className="num-tabular">{(zone.risk_score * 100).toFixed(0)}</strong>/100</span>
+                <RiskScoreExplainer zone={zone} />
+              </span>
+            </>
+          )}
         </div>
 
-        {/* Occupancy Progress Bar */}
-        <div
-          style={{
-            height: '6px',
-            backgroundColor: 'var(--border-subtle)',
-            borderRadius: 'var(--radius-full)',
-            overflow: 'hidden',
-            marginBottom: '14px',
-          }}
-        >
+        {/* Occupancy Progress Bar (only for live zones) */}
+        {!isForecastOnly && !isNoData ? (
           <div
             style={{
-              width: `${Math.min(100, occupancyPercent)}%`,
-              height: '100%',
-              backgroundColor: tierColor,
-              transition: 'width var(--transition-tier)',
+              height: '6px',
+              backgroundColor: 'var(--border-subtle)',
+              borderRadius: 'var(--radius-full)',
+              overflow: 'hidden',
+              marginBottom: '14px',
+            }}
+          >
+            <div
+              style={{
+                width: `${Math.min(100, occupancyPercent)}%`,
+                height: '100%',
+                backgroundColor: tierColor,
+                transition: 'width var(--transition-tier)',
+              }}
+            />
+          </div>
+        ) : (
+          <div
+            style={{
+              height: '6px',
+              backgroundColor: 'var(--border-subtle)',
+              borderRadius: 'var(--radius-full)',
+              marginBottom: '14px',
+              opacity: 0.4,
             }}
           />
-        </div>
+        )}
       </div>
 
       {/* Sensor Reporting Status & Operating Reasons */}
       <div>
         {/* Sensor Indicators */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '10px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Camera size={14} color={hasCamera ? 'var(--text-secondary)' : 'var(--text-muted)'} />
-            <span>Camera: {hasCamera ? <strong className="num-tabular" style={{ color: 'var(--text-primary)' }}>{zone.vision?.person_count}</strong> : 'Offline'}</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Radio size={14} color={hasBeacon ? 'var(--text-secondary)' : 'var(--text-muted)'} />
-            <span>BLE: {hasBeacon ? <strong className="num-tabular" style={{ color: 'var(--text-primary)' }}>{zone.beacon?.unique_devices}</strong> : 'Offline'}</span>
-          </div>
+          {isForecastOnly ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+              <TrendingUp size={14} />
+              <span>Synthetic calendar baseline model</span>
+            </div>
+          ) : isNoData ? (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                <Camera size={14} />
+                <span>Camera: Offline</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                <Radio size={14} />
+                <span>BLE: Offline</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Camera size={14} color={hasCamera ? 'var(--text-secondary)' : 'var(--text-muted)'} />
+                <span>Camera: {hasCamera ? <strong className="num-tabular" style={{ color: 'var(--text-primary)' }}>{zone.vision?.person_count}</strong> : 'Offline'}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Radio size={14} color={hasBeacon ? 'var(--text-secondary)' : 'var(--text-muted)'} />
+                <span>BLE: {hasBeacon ? <strong className="num-tabular" style={{ color: 'var(--text-primary)' }}>{zone.beacon?.unique_devices}</strong> : 'Offline'}</span>
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Reasons list (formatted as sentences) */}
+        {/* Reasons list */}
         {zone.reasons && zone.reasons.length > 0 && (
           <div
             style={{
@@ -183,3 +289,4 @@ export const ZoneCard: React.FC<ZoneCardProps> = memo(({
 });
 
 ZoneCard.displayName = 'ZoneCard';
+
