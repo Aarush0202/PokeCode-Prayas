@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Query, status
@@ -8,12 +9,16 @@ from app.services import store
 
 router = APIRouter()
 
+RAW_MAC_REGEX = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
+
 
 class BeaconIngestRequest(BaseModel):
     zone_id: str
     unique_devices: int = Field(..., ge=0, description="Number of unique Bluetooth devices detected")
     scanner_id: str = "sim-1"
     timestamp: Optional[datetime] = None
+    device_id: Optional[str] = None
+    device_ids: Optional[List[str]] = None
 
 
 class BeaconHistoryResponse(BaseModel):
@@ -24,7 +29,30 @@ class BeaconHistoryResponse(BaseModel):
 
 @router.post("/ingest", response_model=BeaconIngestResponse, tags=["Beacons"])
 async def ingest_beacon(payload: BeaconIngestRequest):
-    """Accepts a Bluetooth device count for a zone."""
+    """Accepts a Bluetooth device count for a zone.
+    Rejects raw un-hashed MAC hardware addresses with HTTP 422 for privacy protection.
+    """
+    # Privacy verification: Reject raw MAC addresses
+    if payload.device_id and RAW_MAC_REGEX.match(payload.device_id):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Privacy policy violation: Raw hardware MAC address '{payload.device_id}' rejected. Provide salted SHA-256 hashes only.",
+        )
+
+    if payload.device_ids:
+        for d in payload.device_ids:
+            if RAW_MAC_REGEX.match(d):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Privacy policy violation: Raw hardware MAC address '{d}' rejected. Provide salted SHA-256 hashes only.",
+                )
+
+    if payload.scanner_id and RAW_MAC_REGEX.match(payload.scanner_id):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Privacy policy violation: Raw hardware MAC address '{payload.scanner_id}' rejected. Provide salted SHA-256 hashes only.",
+        )
+
     if payload.zone_id not in ZONE_BY_ID:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

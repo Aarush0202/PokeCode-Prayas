@@ -11,22 +11,34 @@ import {
   CartesianGrid,
 } from 'recharts';
 import type { ForecastResponse, ForecastPoint } from '../types/crowdguard';
-import { getForecast } from '../services/api';
-import { Calendar, Clock, Sparkles } from 'lucide-react';
+import { getForecast, getZones } from '../services/api';
+import { Calendar, Clock, Sparkles, HelpCircle, Info } from 'lucide-react';
+import { PlacePicker } from './PlacePicker';
 
 interface ForecastChartProps {
   selectedZoneId: string;
-  zonesList: Array<{ id: string; name: string; capacity: number }>;
+  zonesList?: Array<{ id: string; name: string; capacity: number }>;
   onSelectZone: (id: string) => void;
+  onOpenMetrics?: () => void;
 }
 
 export const ForecastChart: React.FC<ForecastChartProps> = ({
   selectedZoneId,
-  zonesList,
+  zonesList = [],
   onSelectZone,
+  onOpenMetrics,
 }) => {
   const [forecast, setForecast] = useState<ForecastResponse | null>(null);
+  const [allZones, setAllZones] = useState<Array<{ id: string; name: string; capacity: number }>>([]);
   const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    getZones()
+      .then((zs) => {
+        setAllZones(zs.map((z) => ({ id: z.id, name: z.name, capacity: z.capacity })));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -48,8 +60,11 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
     };
   }, [selectedZoneId]);
 
-  const currentZone = zonesList.find((z) => z.id === selectedZoneId) ?? zonesList[0];
+  const currentZone =
+    allZones.find((z) => z.id === selectedZoneId) ??
+    zonesList.find((z) => z.id === selectedZoneId);
   const capacity = currentZone?.capacity ?? 900;
+
 
   // Thresholds based on capacity
   const elevatedThresh = Math.round(capacity * 0.48);
@@ -88,58 +103,86 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
     return max;
   }, [chartData]);
 
-  // Custom tooltip
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data: ForecastPoint & { timeLabel: string } = payload[0].payload;
-      return (
-        <div
-          style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-subtle)',
-            borderRadius: 'var(--radius-sm)',
-            padding: '12px 16px',
-            boxShadow: 'var(--shadow-card)',
-            maxWidth: '320px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              {data.timeLabel}
-            </span>
-            <span className={`tier-badge tier-${data.risk_tier}`}>
-              {data.risk_tier}
-            </span>
-          </div>
+const isDriverIllustrative = (drv: string) => {
+  const lower = drv.toLowerCase();
+  return lower.includes('hackathon') || lower.includes('protest') || lower.includes('illustrative') || lower.includes('assumed');
+};
 
-          <div style={{ fontSize: '1.4rem', fontWeight: 800, margin: '4px 0' }} className="num-tabular">
-            {data.predicted_count}{' '}
-            <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)' }}>
-              predicted ({Math.round((data.predicted_count / capacity) * 100)}% capacity)
-            </span>
-          </div>
+interface ForecastTooltipProps {
+  active?: boolean;
+  payload?: readonly any[];
+  capacity: number;
+}
 
-          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-            Projected density: <span className="num-tabular">{data.predicted_density}</span> / m²
-          </div>
-
-          {data.drivers && data.drivers.length > 0 && (
-            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '8px', marginTop: '6px' }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--tier-elevated)', marginBottom: '4px' }}>
-                PRIMARY PREDICTIVE DRIVER:
-              </div>
-              <ul style={{ paddingLeft: '16px', margin: 0, fontSize: '0.8rem', color: 'var(--text-primary)' }}>
-                {data.drivers.map((drv, idx) => (
-                  <li key={idx}>{drv}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+const ForecastCustomTooltip: React.FC<ForecastTooltipProps> = ({ active, payload, capacity }) => {
+  if (active && payload && payload.length) {
+    const data: ForecastPoint & { timeLabel: string } = payload[0].payload;
+    return (
+      <div
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-subtle)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '12px 16px',
+          boxShadow: 'var(--shadow-card)',
+          maxWidth: '320px',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+            {data.timeLabel}
+          </span>
+          <span className={`tier-badge tier-${data.risk_tier}`}>
+            {data.risk_tier}
+          </span>
         </div>
-      );
-    }
-    return null;
-  };
+
+        <div style={{ fontSize: '1.4rem', fontWeight: 800, margin: '4px 0' }} className="num-tabular">
+          {data.predicted_count}{' '}
+          <span style={{ fontSize: '0.8rem', fontWeight: 400, color: 'var(--text-muted)' }}>
+            predicted ({Math.round((data.predicted_count / capacity) * 100)}% capacity)
+          </span>
+        </div>
+
+        <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+          Projected density: <span className="num-tabular">{data.predicted_density}</span> / m²
+        </div>
+
+        {data.drivers && data.drivers.length > 0 && (
+          <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '8px', marginTop: '6px' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--tier-elevated)', marginBottom: '4px' }}>
+              PRIMARY PREDICTIVE DRIVER:
+            </div>
+            <ul style={{ paddingLeft: '16px', margin: 0, fontSize: '0.8rem', color: 'var(--text-primary)' }}>
+              {data.drivers.map((drv, idx) => {
+                const illustrative = isDriverIllustrative(drv);
+                return (
+                  <li key={idx} style={{ marginBottom: '2px' }}>
+                    {drv}
+                    {illustrative && (
+                      <span
+                        style={{
+                          marginLeft: '6px',
+                          fontSize: '0.68rem',
+                          color: 'var(--tier-elevated)',
+                          fontWeight: 700,
+                        }}
+                      >
+                        [Illustrative]
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
+  }
+  return null;
+};
+
 
   return (
     <div
@@ -150,7 +193,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
         padding: '20px 24px',
       }}
     >
-      {/* Header with Zone Picker */}
+      {/* Header with Searchable Place Picker */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -164,27 +207,34 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
           </p>
         </div>
 
-        {/* Zone switcher tabs */}
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-          {zonesList.map((z) => (
+        {/* Place Picker Combobox & About Button */}
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <PlacePicker
+            selectedZoneId={selectedZoneId}
+            onSelectZone={onSelectZone}
+          />
+          {onOpenMetrics && (
             <button
-              key={z.id}
-              onClick={() => onSelectZone(z.id)}
+              type="button"
+              onClick={onOpenMetrics}
               style={{
-                backgroundColor: selectedZoneId === z.id ? 'var(--bg-surface-elevated)' : 'transparent',
-                border: `1px solid ${selectedZoneId === z.id ? 'var(--border-active)' : 'var(--border-subtle)'}`,
-                color: selectedZoneId === z.id ? 'var(--text-primary)' : 'var(--text-muted)',
-                padding: '6px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                backgroundColor: 'var(--bg-surface)',
+                border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-sm)',
+                padding: '6px 10px',
+                color: 'var(--text-secondary)',
+                fontSize: '0.8rem',
                 cursor: 'pointer',
-                fontSize: '0.82rem',
-                fontWeight: selectedZoneId === z.id ? 700 : 500,
-                transition: 'all var(--transition-fast)',
+                fontWeight: 600,
               }}
             >
-              {z.name}
+              <Info size={13} />
+              <span>About this forecast</span>
             </button>
-          ))}
+          )}
         </div>
       </div>
 
@@ -211,7 +261,19 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
               <span className="num-tabular" style={{ fontWeight: 700, color: 'var(--tier-high)' }}>
                 {peakPoint.predicted_count}
               </span>{' '}
-              occupants driven by <em>"{peakPoint.drivers[0]}"</em>.
+              occupants driven by <em>"{peakPoint.drivers[0]}"</em>
+              {isDriverIllustrative(peakPoint.drivers[0]) && (
+                <span
+                  style={{
+                    marginLeft: '6px',
+                    fontSize: '0.72rem',
+                    color: 'var(--tier-elevated)',
+                    fontWeight: 700,
+                  }}
+                >
+                  [Illustrative]
+                </span>
+              )}.
             </span>
           </div>
           <span className="tier-badge tier-HIGH" style={{ fontSize: '0.72rem' }}>
@@ -253,7 +315,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
                 className="num-tabular"
               />
 
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip content={(props) => <ForecastCustomTooltip {...props} capacity={capacity} />} />
 
               {/* Reference Areas for Danger Bands */}
               <ReferenceArea
@@ -307,24 +369,33 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
         </div>
       )}
 
-      {/* Legend & Footnote */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '12px', height: '3px', backgroundColor: 'var(--tier-high)', display: 'inline-block' }} />
-            <span>Predicted Headcount</span>
+      {/* Legend & Required Small Print */}
+      <div style={{ marginTop: '16px', paddingTop: '12px', borderTop: '1px solid var(--border-subtle)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+          <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '12px', height: '3px', backgroundColor: 'var(--tier-high)', display: 'inline-block' }} />
+              <span>Predicted Headcount</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '10px', height: '10px', backgroundColor: 'rgba(249,115,22,0.15)', border: '1px dashed var(--tier-high)', display: 'inline-block' }} />
+              <span>High Risk Band</span>
+            </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{ width: '10px', height: '10px', backgroundColor: 'rgba(249,115,22,0.15)', border: '1px dashed var(--tier-high)', display: 'inline-block' }} />
-            <span>High Risk Band</span>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <Clock size={12} />
+            <span>Updates dynamically as municipal permits refresh</span>
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <Clock size={12} />
-          <span>Updates dynamically as municipal permits refresh</span>
+        {/* Small Print Mandated by Brief */}
+        <div style={{ marginTop: '8px', fontSize: '0.74rem', color: 'var(--text-muted)', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: '5px' }}>
+          <HelpCircle size={12} style={{ flexShrink: 0 }} />
+          <span>Forecasts come from a category-based model trained on synthetic data; illustrative events are marked.</span>
         </div>
       </div>
     </div>
   );
 };
+

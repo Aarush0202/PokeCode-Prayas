@@ -74,3 +74,44 @@ def test_beacons_history():
     assert len(data["readings"]) == 3
     assert data["readings"][0]["unique_devices"] == 10
     assert data["readings"][-1]["unique_devices"] == 30
+
+
+def test_beacons_ingest_rejects_raw_mac():
+    """Ingest endpoint rejects payloads with raw hardware MAC addresses for privacy protection."""
+    # Colon-separated MAC
+    resp1 = client.post(
+        "/api/v1/beacons/ingest",
+        json={"zone_id": "z1", "unique_devices": 15, "device_id": "00:1A:2B:3C:4D:5E"},
+    )
+    assert resp1.status_code == 422
+    assert "raw hardware mac address" in resp1.json()["detail"].lower()
+
+    # Hyphen-separated MAC in scanner_id
+    resp2 = client.post(
+        "/api/v1/beacons/ingest",
+        json={"zone_id": "z1", "unique_devices": 15, "scanner_id": "AA-BB-CC-DD-EE-FF"},
+    )
+    assert resp2.status_code == 422
+    assert "raw hardware mac address" in resp2.json()["detail"].lower()
+
+
+def test_hash_mac_properties():
+    """Verifies pure hash_mac behavior: length 12, deterministic with same salt, distinct with different salt."""
+    import sys
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent.parent
+    sys.path.insert(0, str(root))
+    from tools.ble_scanner import hash_mac
+
+    mac = "00:11:22:33:44:55"
+    salt1 = b"salt_alpha_12345"
+    salt2 = b"salt_beta_678901"
+
+    h1a = hash_mac(mac, salt1)
+    h1b = hash_mac(mac, salt1)
+    h2 = hash_mac(mac, salt2)
+
+    assert len(h1a) == 12
+    assert h1a == h1b
+    assert h1a != h2
+

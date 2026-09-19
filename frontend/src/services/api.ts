@@ -5,6 +5,10 @@ import type {
   ForecastResponse,
   EventsResponse,
   VisionAnalyzeResponse,
+  ForecastMetricsResponse,
+  PlannerAssessRequest,
+  PlannerAssessResponse,
+  PlannerParseResponse,
 } from '../types/crowdguard';
 import {
   FIXTURE_ZONES,
@@ -12,6 +16,9 @@ import {
   getMockAlerts,
   getMockForecast,
   getMockEvents,
+  getMockForecastMetrics,
+  getMockPlannerAssess,
+  getMockPlannerParse,
   mockAnalyzeFrame,
   mockSimulateVision,
   mockIngestBeacon,
@@ -65,7 +72,10 @@ export async function getZones(): Promise<Zone[]> {
     const res = await fetchWithTimeout(`${API_BASE_URL}/v1/zones`);
     if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
     degradedMode = false;
-    return await res.json();
+    const data = await res.json();
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.zones)) return data.zones;
+    return FIXTURE_ZONES;
   } catch (err) {
     console.warn('[CrowdGuard API] getZones failed, falling back to fixtures:', err);
     degradedMode = true;
@@ -248,3 +258,65 @@ export async function checkBackendHealth(): Promise<BackendHealth> {
     return { status: 'unreachable', latencyMs };
   }
 }
+
+export async function getForecastMetrics(): Promise<ForecastMetricsResponse | null> {
+  if (MOCK) {
+    await delay(120);
+    return getMockForecastMetrics();
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/forecast/metrics`);
+    if (!res.ok) {
+      return getMockForecastMetrics();
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn('[CrowdGuard API] getForecastMetrics failed, falling back to mock metrics:', err);
+    return getMockForecastMetrics();
+  }
+}
+
+export async function assessEvent(req: PlannerAssessRequest): Promise<PlannerAssessResponse> {
+  if (MOCK) {
+    await delay(250);
+    return getMockPlannerAssess(req);
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/planner/assess`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    degradedMode = false;
+    return await res.json();
+  } catch (err) {
+    console.warn('[CrowdGuard API] assessEvent failed, using mock engine:', err);
+    degradedMode = true;
+    return getMockPlannerAssess(req);
+  }
+}
+
+export async function parseEventText(text: string): Promise<PlannerParseResponse> {
+  if (MOCK) {
+    await delay(300);
+    return getMockPlannerParse(text);
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/planner/parse`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    degradedMode = false;
+    return await res.json();
+  } catch (err) {
+    console.warn('[CrowdGuard API] parseEventText failed, using local parser:', err);
+    return getMockPlannerParse(text);
+  }
+}
+
