@@ -23,9 +23,38 @@ except ImportError:
     BLEAK_AVAILABLE = False
 
 
-def hash_mac_address(address: str) -> str:
-    """Anonymizes hardware address via one-way SHA-256 truncation."""
-    return hashlib.sha256(address.encode("utf-8")).hexdigest()[:12]
+import os
+import re
+import time
+
+RAW_MAC_REGEX = re.compile(r"^([0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$")
+
+# Rotating in-memory salt (starts random, rotated every 10 mins, never written to disk or sent)
+_active_salt: bytes = os.urandom(16)
+_last_salt_time: float = time.time()
+SALT_ROTATION_SECONDS: float = 600.0  # 10 minutes
+
+
+def get_current_salt() -> bytes:
+    """Returns the current ephemeral salt, rotating every 10 minutes."""
+    global _active_salt, _last_salt_time
+    now = time.time()
+    if now - _last_salt_time >= SALT_ROTATION_SECONDS:
+        _active_salt = os.urandom(16)
+        _last_salt_time = now
+    return _active_salt
+
+
+def hash_mac(mac: str, salt: bytes) -> str:
+    """Pure salted hash of hardware MAC address via SHA-256, returning first 12 hex characters."""
+    return hashlib.sha256(mac.encode("utf-8") + salt).hexdigest()[:12]
+
+
+def hash_mac_address(address: str, salt: Optional[bytes] = None) -> str:
+    """Anonymizes hardware address using the active rotating salt."""
+    if salt is None:
+        salt = get_current_salt()
+    return hash_mac(address, salt)
 
 
 async def scan_window(duration: float) -> int:

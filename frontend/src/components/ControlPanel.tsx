@@ -1,16 +1,21 @@
 import React, { useState } from 'react';
-import type { VisionAnalyzeResponse } from '../types/crowdguard';
+import type { VisionAnalyzeResponse, IncidentLogEntry } from '../types/crowdguard';
+import type { UserProfile } from './LoginPage';
 import { analyzeFrame, simulateVision, ingestBeacon, deescalateZone, resetAllZones } from '../services/api';
-import { Upload, Radio, Camera, Zap, CheckCircle2, RotateCcw, TrendingDown } from 'lucide-react';
+import { Upload, Radio, Camera, Zap, CheckCircle2, RotateCcw, TrendingDown, Lock, ShieldCheck } from 'lucide-react';
 
 interface ControlPanelProps {
   zonesList: Array<{ id: string; name: string; capacity: number }>;
   onTelemetryUpdated: () => void;
+  currentUser?: UserProfile | null;
+  onLogIncident?: (entry: IncidentLogEntry) => void;
 }
 
 export const ControlPanel: React.FC<ControlPanelProps> = ({
   zonesList,
   onTelemetryUpdated,
+  currentUser,
+  onLogIncident,
 }) => {
   const [selectedZone, setSelectedZone] = useState<string>(zonesList[0]?.id || 'z1');
   const [visionCount, setVisionCount] = useState<number>(140);
@@ -19,12 +24,19 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<VisionAnalyzeResponse | null>(null);
 
+  const canOverride = currentUser ? currentUser.permissions.canOverrideSensors : true;
+  const canDeescalate = currentUser ? currentUser.permissions.canDeescalate : true;
+
   const showFeedback = (msg: string) => {
     setActionSuccess(msg);
     setTimeout(() => setActionSuccess(null), 3500);
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canOverride) {
+      showFeedback('Permission Denied: Your role does not have Sensor Override clearance');
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -33,6 +45,19 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       const res = await analyzeFrame(file, selectedZone);
       setAnalysisResult(res);
       showFeedback(`Camera frame analyzed: ${res.person_count} persons detected (${res.model_name})`);
+      const targetZoneObj = zonesList.find(z => z.id === selectedZone) || zonesList[0];
+      const ratio = res.person_count / targetZoneObj.capacity;
+      const tier = ratio > 0.8 ? 'HIGH' : ratio > 0.5 ? 'ELEVATED' : 'NORMAL';
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      onLogIncident?.({
+        id: `inc-${Date.now()}`,
+        timestamp: timeStr,
+        zone_id: selectedZone,
+        zone_name: targetZoneObj.name,
+        tier,
+        driver: `CCTV Optical Frame Ingest: ${res.person_count} persons detected via ${res.model_name} (Operator: ${currentUser?.name || 'Commander'})`,
+        risk_score: Number((ratio * 0.9).toFixed(2)),
+      });
       onTelemetryUpdated();
     } catch (err) {
       console.error('Upload failed:', err);
@@ -42,9 +67,26 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const handleSimulateVision = async (countToPush: number = visionCount) => {
+    if (!canOverride) {
+      showFeedback('Permission Denied: Your role does not have Sensor Override clearance');
+      return;
+    }
     try {
       await simulateVision(selectedZone, countToPush);
-      showFeedback(`Camera count updated to ${countToPush} for ${zonesList.find(z => z.id === selectedZone)?.name}`);
+      const targetZoneObj = zonesList.find(z => z.id === selectedZone) || zonesList[0];
+      showFeedback(`Camera count updated to ${countToPush} for ${targetZoneObj.name}`);
+      const ratio = countToPush / targetZoneObj.capacity;
+      const tier = ratio > 0.8 ? 'HIGH' : ratio > 0.5 ? 'ELEVATED' : 'NORMAL';
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      onLogIncident?.({
+        id: `inc-${Date.now()}`,
+        timestamp: timeStr,
+        zone_id: selectedZone,
+        zone_name: targetZoneObj.name,
+        tier,
+        driver: `Optical camera count adjusted to ${countToPush} (${Math.round(ratio * 100)}% capacity) by ${currentUser?.name || 'Commander'}`,
+        risk_score: Math.min(0.99, Number((ratio * 0.9).toFixed(2))),
+      });
       onTelemetryUpdated();
     } catch (err) {
       console.error('Vision simulation failed:', err);
@@ -52,9 +94,26 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const handleInjectBeacon = async (countToPush: number = beaconCount) => {
+    if (!canOverride) {
+      showFeedback('Permission Denied: Your role does not have Sensor Override clearance');
+      return;
+    }
     try {
       await ingestBeacon(selectedZone, countToPush);
-      showFeedback(`BLE device telemetry set to ${countToPush} for ${zonesList.find(z => z.id === selectedZone)?.name}`);
+      const targetZoneObj = zonesList.find(z => z.id === selectedZone) || zonesList[0];
+      showFeedback(`BLE device telemetry set to ${countToPush} for ${targetZoneObj.name}`);
+      const ratio = countToPush / targetZoneObj.capacity;
+      const tier = ratio > 0.85 ? 'CRITICAL' : ratio > 0.7 ? 'HIGH' : ratio > 0.45 ? 'ELEVATED' : 'NORMAL';
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      onLogIncident?.({
+        id: `inc-${Date.now()}`,
+        timestamp: timeStr,
+        zone_id: selectedZone,
+        zone_name: targetZoneObj.name,
+        tier,
+        driver: `BLE RF surge telemetry: ${countToPush} devices detected (${Math.round(ratio * 100)}% density) by ${currentUser?.name || 'Commander'}`,
+        risk_score: Math.min(0.99, Number((ratio * 0.95).toFixed(2))),
+      });
       onTelemetryUpdated();
     } catch (err) {
       console.error('Beacon ingestion failed:', err);
@@ -62,6 +121,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const handleDeescalate = async () => {
+    if (!canDeescalate) {
+      showFeedback('Permission Denied: Only Lead Incident Commanders can de-escalate zones');
+      return;
+    }
     try {
       const targetZoneObj = zonesList.find(z => z.id === selectedZone) || zonesList[0];
       const safeCount = Math.round(targetZoneObj.capacity * 0.28);
@@ -69,6 +132,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
       setVisionCount(safeCount);
       setBeaconCount(safeCount);
       showFeedback(`De-escalated ${targetZoneObj.name} to NORMAL (${safeCount} occupants)`);
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      onLogIncident?.({
+        id: `inc-${Date.now()}`,
+        timestamp: timeStr,
+        zone_id: selectedZone,
+        zone_name: targetZoneObj.name,
+        tier: 'NORMAL',
+        previous_tier: 'HIGH',
+        driver: `Tactical de-escalation ordered by ${currentUser?.name || 'Commander'} (egress corridors stabilized)`,
+        risk_score: 0.28,
+      });
       onTelemetryUpdated();
     } catch (err) {
       console.error('De-escalation failed:', err);
@@ -76,9 +150,23 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   };
 
   const handleResetAll = async () => {
+    if (!canDeescalate) {
+      showFeedback('Permission Denied: Only Lead Incident Commanders can reset all zones');
+      return;
+    }
     try {
       await resetAllZones();
       showFeedback(`Reset all zones to NORMAL nominal baselines`);
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      onLogIncident?.({
+        id: `inc-${Date.now()}`,
+        timestamp: timeStr,
+        zone_id: 'all',
+        zone_name: 'All Sectors',
+        tier: 'NORMAL',
+        driver: `Global baseline reset to NOMINAL by ${currentUser?.name || 'Commander'}`,
+        risk_score: 0.24,
+      });
       onTelemetryUpdated();
     } catch (err) {
       console.error('Reset all failed:', err);
@@ -110,24 +198,48 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </p>
         </div>
 
-        {actionSuccess && (
+        {/* RBAC Operator Clearance Pill */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div
             style={{
-              backgroundColor: 'var(--tier-normal-bg)',
-              border: '1px solid var(--tier-normal-border)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '6px 12px',
-              fontSize: '0.82rem',
-              color: 'var(--tier-normal)',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
+              backgroundColor: canDeescalate ? 'var(--tier-normal-bg)' : 'var(--tier-elevated-bg)',
+              border: `1px solid ${canDeescalate ? 'var(--tier-normal-border)' : 'var(--tier-elevated-border)'}`,
+              padding: '5px 10px',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.78rem',
+              color: canDeescalate ? 'var(--tier-normal)' : 'var(--tier-elevated)',
+              fontWeight: 600,
             }}
           >
-            <CheckCircle2 size={16} />
-            <span>{actionSuccess}</span>
+            {canDeescalate ? <ShieldCheck size={14} /> : <Lock size={14} />}
+            <span>
+              {currentUser ? currentUser.name : 'Commander Session'} •{' '}
+              <strong>{canDeescalate ? 'Tactical Actuators Unlocked' : canOverride ? 'Sensor Override Only (De-escalation Gated)' : 'Read-Only Mode'}</strong>
+            </span>
           </div>
-        )}
+
+          {actionSuccess && (
+            <div
+              style={{
+                backgroundColor: 'var(--tier-normal-bg)',
+                border: '1px solid var(--tier-normal-border)',
+                borderRadius: 'var(--radius-sm)',
+                padding: '5px 10px',
+                fontSize: '0.8rem',
+                color: 'var(--tier-normal)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <CheckCircle2 size={15} />
+              <span>{actionSuccess}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Target Zone Selector & Reset Actions */}
@@ -163,46 +275,50 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           </div>
         </div>
 
-        {/* Global De-escalate & Reset controls */}
+        {/* Global De-escalate & Reset controls (Gated by canDeescalate) */}
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
             onClick={handleDeescalate}
-            title="De-escalate current zone to Normal status"
+            disabled={!canDeescalate}
+            title={canDeescalate ? 'De-escalate current zone to Normal status' : 'Requires Incident Commander Clearance (Locked for Analyst)'}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              backgroundColor: 'var(--tier-normal-bg)',
-              border: '1px solid var(--tier-normal-border)',
-              color: 'var(--tier-normal)',
+              backgroundColor: canDeescalate ? 'var(--tier-normal-bg)' : 'var(--bg-surface)',
+              border: `1px solid ${canDeescalate ? 'var(--tier-normal-border)' : 'var(--border-subtle)'}`,
+              color: canDeescalate ? 'var(--tier-normal)' : 'var(--text-muted)',
               padding: '7px 14px',
               borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
+              cursor: canDeescalate ? 'pointer' : 'not-allowed',
               fontSize: '0.82rem',
               fontWeight: 700,
+              opacity: canDeescalate ? 1 : 0.6,
             }}
           >
-            <TrendingDown size={14} />
+            {canDeescalate ? <TrendingDown size={14} /> : <Lock size={14} />}
             <span>De-escalate Zone</span>
           </button>
           <button
             onClick={handleResetAll}
-            title="Reset all zones to baseline Normal"
+            disabled={!canDeescalate}
+            title={canDeescalate ? 'Reset all zones to baseline Normal' : 'Requires Incident Commander Clearance'}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              backgroundColor: 'var(--bg-surface-elevated)',
+              backgroundColor: canDeescalate ? 'var(--bg-surface-elevated)' : 'var(--bg-surface)',
               border: '1px solid var(--border-subtle)',
-              color: 'var(--text-secondary)',
+              color: canDeescalate ? 'var(--text-secondary)' : 'var(--text-muted)',
               padding: '7px 14px',
               borderRadius: 'var(--radius-sm)',
-              cursor: 'pointer',
+              cursor: canDeescalate ? 'pointer' : 'not-allowed',
               fontSize: '0.82rem',
               fontWeight: 600,
+              opacity: canDeescalate ? 1 : 0.6,
             }}
           >
-            <RotateCcw size={14} />
+            {canDeescalate ? <RotateCcw size={14} /> : <Lock size={14} />}
             <span>Reset All Zones</span>
           </button>
         </div>
@@ -247,19 +363,27 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 border: '1px dashed var(--border-active)',
                 borderRadius: 'var(--radius-sm)',
                 backgroundColor: 'var(--bg-surface)',
-                cursor: uploading ? 'not-allowed' : 'pointer',
-                color: 'var(--text-primary)',
+                cursor: !canOverride || uploading ? 'not-allowed' : 'pointer',
+                color: canOverride ? 'var(--text-primary)' : 'var(--text-muted)',
                 fontSize: '0.85rem',
                 fontWeight: 600,
+                opacity: canOverride ? 1 : 0.6,
               }}
+              title={canOverride ? undefined : 'Requires Tactical Sensor Override clearance'}
             >
-              <Upload size={16} />
-              <span>{uploading ? 'Processing with YOLO...' : 'Choose Camera Frame'}</span>
+              {!canOverride ? <Lock size={16} /> : <Upload size={16} />}
+              <span>
+                {!canOverride
+                  ? 'Sensor Override Gated'
+                  : uploading
+                  ? 'Processing with YOLO...'
+                  : 'Choose Camera Frame'}
+              </span>
               <input
                 type="file"
                 accept="image/*"
                 onChange={handleFileUpload}
-                disabled={uploading}
+                disabled={uploading || !canOverride}
                 style={{ display: 'none' }}
               />
             </label>
@@ -302,6 +426,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 onChange={(e) => setVisionCount(Number(e.target.value))}
                 min={0}
                 max={2000}
+                disabled={!canOverride}
                 className="num-tabular"
                 style={{
                   backgroundColor: 'var(--bg-surface)',
@@ -312,23 +437,32 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   width: '90px',
                   fontSize: '0.95rem',
                   fontWeight: 700,
+                  opacity: canOverride ? 1 : 0.6,
                 }}
               />
               <button
                 onClick={() => handleSimulateVision(visionCount)}
+                disabled={!canOverride}
+                title={canOverride ? undefined : 'Requires Sensor Override clearance'}
                 style={{
                   flex: 1,
                   backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-active)',
-                  color: 'var(--text-primary)',
+                  color: canOverride ? 'var(--text-primary)' : 'var(--text-muted)',
                   borderRadius: 'var(--radius-sm)',
                   padding: '8px 12px',
-                  cursor: 'pointer',
+                  cursor: canOverride ? 'pointer' : 'not-allowed',
                   fontWeight: 600,
                   fontSize: '0.85rem',
+                  opacity: canOverride ? 1 : 0.6,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
                 }}
               >
-                Apply Count
+                {!canOverride && <Lock size={13} />}
+                <span>Apply Count</span>
               </button>
             </div>
           </div>
@@ -340,6 +474,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 setVisionCount(count);
                 handleSimulateVision(count);
               }}
+              disabled={!canOverride}
               style={{
                 fontSize: '0.75rem',
                 padding: '4px 8px',
@@ -347,8 +482,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 backgroundColor: 'var(--tier-normal-bg)',
                 border: '1px solid var(--tier-normal-border)',
                 color: 'var(--tier-normal)',
-                cursor: 'pointer',
+                cursor: canOverride ? 'pointer' : 'not-allowed',
                 fontWeight: 600,
+                opacity: canOverride ? 1 : 0.6,
               }}
             >
               Normal (25%)
@@ -359,6 +495,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 setVisionCount(count);
                 handleSimulateVision(count);
               }}
+              disabled={!canOverride}
               style={{
                 fontSize: '0.75rem',
                 padding: '4px 8px',
@@ -366,8 +503,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 backgroundColor: 'var(--tier-elevated-bg)',
                 border: '1px solid var(--tier-elevated-border)',
                 color: 'var(--tier-elevated)',
-                cursor: 'pointer',
+                cursor: canOverride ? 'pointer' : 'not-allowed',
                 fontWeight: 600,
+                opacity: canOverride ? 1 : 0.6,
               }}
             >
               Elevated (60%)
@@ -378,6 +516,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 setVisionCount(count);
                 handleSimulateVision(count);
               }}
+              disabled={!canOverride}
               style={{
                 fontSize: '0.75rem',
                 padding: '4px 8px',
@@ -385,8 +524,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 backgroundColor: 'var(--tier-high-bg)',
                 border: '1px solid var(--tier-high-border)',
                 color: 'var(--tier-high)',
-                cursor: 'pointer',
+                cursor: canOverride ? 'pointer' : 'not-allowed',
                 fontWeight: 600,
+                opacity: canOverride ? 1 : 0.6,
               }}
             >
               Surge (85%)
@@ -422,6 +562,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 onChange={(e) => setBeaconCount(Number(e.target.value))}
                 min={0}
                 max={2000}
+                disabled={!canOverride}
                 className="num-tabular"
                 style={{
                   backgroundColor: 'var(--bg-surface)',
@@ -432,23 +573,32 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                   width: '90px',
                   fontSize: '0.95rem',
                   fontWeight: 700,
+                  opacity: canOverride ? 1 : 0.6,
                 }}
               />
               <button
                 onClick={() => handleInjectBeacon(beaconCount)}
+                disabled={!canOverride}
+                title={canOverride ? undefined : 'Requires Sensor Override clearance'}
                 style={{
                   flex: 1,
                   backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--tier-elevated-border)',
-                  color: 'var(--tier-elevated)',
+                  color: canOverride ? 'var(--tier-elevated)' : 'var(--text-muted)',
                   borderRadius: 'var(--radius-sm)',
                   padding: '8px 12px',
-                  cursor: 'pointer',
+                  cursor: canOverride ? 'pointer' : 'not-allowed',
                   fontWeight: 700,
                   fontSize: '0.85rem',
+                  opacity: canOverride ? 1 : 0.6,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
                 }}
               >
-                Apply BLE
+                {!canOverride && <Lock size={13} />}
+                <span>Apply BLE</span>
               </button>
             </div>
           </div>
@@ -460,6 +610,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 setBeaconCount(count);
                 handleInjectBeacon(count);
               }}
+              disabled={!canOverride}
               style={{
                 fontSize: '0.75rem',
                 padding: '4px 8px',
@@ -467,8 +618,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 backgroundColor: 'var(--tier-normal-bg)',
                 border: '1px solid var(--tier-normal-border)',
                 color: 'var(--tier-normal)',
-                cursor: 'pointer',
+                cursor: canOverride ? 'pointer' : 'not-allowed',
                 fontWeight: 600,
+                opacity: canOverride ? 1 : 0.6,
               }}
             >
               Normal (25%)
@@ -479,6 +631,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 setBeaconCount(count);
                 handleInjectBeacon(count);
               }}
+              disabled={!canOverride}
               style={{
                 fontSize: '0.75rem',
                 padding: '4px 8px',
@@ -486,8 +639,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 backgroundColor: 'var(--tier-high-bg)',
                 border: '1px solid var(--tier-high-border)',
                 color: 'var(--tier-high)',
-                cursor: 'pointer',
+                cursor: canOverride ? 'pointer' : 'not-allowed',
                 fontWeight: 600,
+                opacity: canOverride ? 1 : 0.6,
               }}
             >
               Surge (+78%)
@@ -498,6 +652,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 setBeaconCount(count);
                 handleInjectBeacon(count);
               }}
+              disabled={!canOverride}
               style={{
                 fontSize: '0.75rem',
                 padding: '4px 8px',
@@ -505,8 +660,9 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 backgroundColor: 'var(--tier-critical-bg)',
                 border: '1px solid var(--tier-critical-border)',
                 color: 'var(--tier-critical)',
-                cursor: 'pointer',
+                cursor: canOverride ? 'pointer' : 'not-allowed',
                 fontWeight: 700,
+                opacity: canOverride ? 1 : 0.6,
               }}
             >
               Critical (95%)

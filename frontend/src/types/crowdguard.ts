@@ -106,3 +106,60 @@ export interface EventsResponse {
   count: number;
   events: EventItem[];
 }
+
+export interface IncidentLogEntry {
+  id: string;
+  timestamp: string;
+  zone_id: string;
+  zone_name: string;
+  tier: RiskTier;
+  previous_tier?: RiskTier;
+  driver: string;
+  message?: string;
+  risk_score: number;
+}
+
+export interface RiskScoreBreakdown {
+  densityScore: number;
+  densityWeight: number;
+  densityContribution: number;
+  divergenceScore: number;
+  divergenceWeight: number;
+  divergenceContribution: number;
+  forecastScore: number;
+  forecastWeight: number;
+  forecastContribution: number;
+  totalScore: number;
+}
+
+export function calculateRiskBreakdown(zone: ZoneRisk): RiskScoreBreakdown {
+  const occRatio = Math.min(1.2, zone.fused_estimate / Math.max(1, zone.capacity));
+  const densityNormalized = Math.round(Math.min(100, occRatio * 100));
+
+  const cameraCount = zone.vision?.person_count ?? zone.fused_estimate;
+  const bleCount = zone.beacon?.unique_devices ?? zone.fused_estimate;
+  const discrepancy = Math.abs(bleCount - cameraCount);
+  const discrepancyRatio = Math.min(1, discrepancy / Math.max(1, zone.capacity * 0.4));
+  const divergenceNormalized = Math.round(discrepancyRatio * 100);
+
+  const forecastNormalized = Math.round(Math.min(100, (zone.forecast_pressure || 0.25) * 100));
+
+  // Weights: 50% density + 30% BLE delta + 20% forecast proximity
+  const densityContribution = Math.round(densityNormalized * 0.50);
+  const divergenceContribution = Math.round(divergenceNormalized * 0.30);
+  const forecastContribution = Math.round(forecastNormalized * 0.20);
+  const totalScore = Math.min(100, densityContribution + divergenceContribution + forecastContribution);
+
+  return {
+    densityScore: densityNormalized,
+    densityWeight: 0.50,
+    densityContribution,
+    divergenceScore: divergenceNormalized,
+    divergenceWeight: 0.30,
+    divergenceContribution,
+    forecastScore: forecastNormalized,
+    forecastWeight: 0.20,
+    forecastContribution,
+    totalScore,
+  };
+}
