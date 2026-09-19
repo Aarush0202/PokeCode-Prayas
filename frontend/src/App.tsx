@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import './App.css';
 import { useLiveRisk } from './hooks/useLiveRisk';
 import { getAlerts, getEvents, checkBackendHealth } from './services/api';
-import type { Alert, EventItem, IncidentLogEntry } from './types/crowdguard';
+import type { Alert, EventItem, IncidentLogEntry, ZoneRisk } from './types/crowdguard';
 import { AlertBanner } from './components/AlertBanner';
 import { ZoneGrid } from './components/ZoneGrid';
 import { SignalBreakdown } from './components/SignalBreakdown';
@@ -14,7 +14,9 @@ import { IncidentLog } from './components/IncidentLog';
 import { LoginPage, DUMMY_ACCOUNTS, type UserProfile } from './components/LoginPage';
 import { EventPlanner } from './components/EventPlanner';
 import { AboutForecastModal } from './components/AboutForecastModal';
-import { Shield, Activity, TrendingUp, Layers, Radio, AlertOctagon, Sun, Moon, LogOut } from 'lucide-react';
+import { CameraFeedModal } from './components/CameraFeedModal';
+import { playTacticalChime, playEmergencyAlarm } from './utils/audioAlerts';
+import { Shield, Activity, TrendingUp, Layers, Radio, AlertOctagon, Sun, Moon, LogOut, Volume2, VolumeX } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
@@ -37,6 +39,14 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'live' | 'forecast' | 'planner'>('live');
   const [showMetricsModal, setShowMetricsModal] = useState<boolean>(false);
   const [selectedZoneId, setSelectedZoneId] = useState<string>('z3'); // Default to Market Street (high interest)
+  const [camModalZone, setCamModalZone] = useState<ZoneRisk | null>(null);
+  const [audioAlarmEnabled, setAudioAlarmEnabled] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('crowdguard_audio_alarm') === '1';
+    } catch {
+      return false;
+    }
+  });
 
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
@@ -108,6 +118,18 @@ export const App: React.FC = () => {
   };
 
   const { zones, degraded, lastUpdated, refetch } = useLiveRisk(3000);
+
+  // Tactical audio chime / siren on elevated or critical status
+  useEffect(() => {
+    if (!audioAlarmEnabled) return;
+    const criticalZone = zones.find((z) => z.risk_tier === 'CRITICAL');
+    const highZone = zones.find((z) => z.risk_tier === 'HIGH');
+    if (criticalZone) {
+      playEmergencyAlarm(0.18);
+    } else if (highZone) {
+      playTacticalChime(0.15);
+    }
+  }, [zones, audioAlarmEnabled]);
 
   // Poll alerts every 5 seconds
   useEffect(() => {
@@ -297,6 +319,37 @@ export const App: React.FC = () => {
               <span className="num-tabular">{backendStatus.latencyMs}ms</span>
             </div>
 
+            {/* Audio Alarm Chime / Siren Toggle */}
+            <button
+              onClick={() => {
+                const next = !audioAlarmEnabled;
+                setAudioAlarmEnabled(next);
+                try {
+                  localStorage.setItem('crowdguard_audio_alarm', next ? '1' : '0');
+                } catch {
+                  // ignore
+                }
+                if (next) playTacticalChime(0.2);
+              }}
+              title={audioAlarmEnabled ? 'Tactical Audio Alarm: ON (Click to Mute)' : 'Tactical Audio Alarm: MUTED (Click to Enable)'}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                padding: '5px 9px',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: audioAlarmEnabled ? 'rgba(234, 88, 12, 0.12)' : 'var(--bg-surface-elevated)',
+                border: `1px solid ${audioAlarmEnabled ? 'var(--tier-high)' : 'var(--border-subtle)'}`,
+                color: audioAlarmEnabled ? 'var(--tier-high)' : 'var(--text-muted)',
+                fontSize: '0.74rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {audioAlarmEnabled ? <Volume2 size={13} /> : <VolumeX size={13} />}
+              <span>{audioAlarmEnabled ? 'SIREN ON' : 'MUTED'}</span>
+            </button>
+
             {/* Light / Dark Mode Toggle */}
             <button
               onClick={toggleTheme}
@@ -431,12 +484,16 @@ export const App: React.FC = () => {
             />
 
             {/* Multimodal Sensor Fusion Discrepancy Component */}
-            <SignalBreakdown zone={selectedZone} />
+            <SignalBreakdown
+              zone={selectedZone}
+              onOpenCamModal={(z) => setCamModalZone(z)}
+            />
 
             {/* Incident & Telemetry Transition Audit Timeline */}
             <IncidentLog
               logs={incidentLogs}
               onClearLogs={() => setIncidentLogs([])}
+              currentUser={currentUser}
             />
 
             {/* Presenter Ingestion / Simulation Panel with RBAC */}
@@ -472,6 +529,13 @@ export const App: React.FC = () => {
       <AboutForecastModal
         isOpen={showMetricsModal}
         onClose={() => setShowMetricsModal(false)}
+      />
+
+      {/* Live Optical CCTV Stream Modal (YOLOv8 HUD) */}
+      <CameraFeedModal
+        isOpen={Boolean(camModalZone)}
+        onClose={() => setCamModalZone(null)}
+        zone={camModalZone}
       />
 
       {/* Pitch One-Liner Footer */}

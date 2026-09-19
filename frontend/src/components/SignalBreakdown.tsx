@@ -4,9 +4,10 @@ import { Camera, Radio, Cpu, ArrowRight, ShieldCheck, AlertTriangle, TrendingUp,
 
 interface SignalBreakdownProps {
   zone: ZoneRisk | null;
+  onOpenCamModal?: (zone: ZoneRisk) => void;
 }
 
-export const SignalBreakdown: React.FC<SignalBreakdownProps> = ({ zone }) => {
+export const SignalBreakdown: React.FC<SignalBreakdownProps> = ({ zone, onOpenCamModal }) => {
   if (!zone) {
     return (
       <div
@@ -248,6 +249,31 @@ export const SignalBreakdown: React.FC<SignalBreakdownProps> = ({ zone }) => {
                   <div>Flow velocity: <span className="num-tabular" style={{ color: 'var(--text-primary)' }}>{zone.vision.flow.magnitude.toFixed(2)} m/s</span></div>
                 )}
               </>
+            )}
+
+            {!isForecastOnly && onOpenCamModal && (
+              <button
+                onClick={() => onOpenCamModal(zone)}
+                style={{
+                  marginTop: '10px',
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  padding: '6px 10px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
+                  color: 'var(--text-primary)',
+                  cursor: 'pointer',
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                }}
+              >
+                <Camera size={13} />
+                <span>Inspect Optical Feed (HUD)</span>
+              </button>
             )}
           </div>
         </div>

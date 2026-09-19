@@ -9,6 +9,8 @@ import type {
   PlannerAssessRequest,
   PlannerAssessResponse,
   PlannerParseResponse,
+  BeaconSignal,
+  VisionSignal,
 } from '../types/crowdguard';
 import {
   FIXTURE_ZONES,
@@ -319,4 +321,73 @@ export async function parseEventText(text: string): Promise<PlannerParseResponse
     return getMockPlannerParse(text);
   }
 }
+
+export async function getLatestBeacon(zoneId: string): Promise<BeaconSignal | null> {
+  if (MOCK) return null;
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/beacons/latest/${zoneId}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function getBeaconHistory(zoneId: string, limit: number = 50): Promise<BeaconSignal[]> {
+  if (MOCK) return [];
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/beacons/history/${zoneId}?limit=${limit}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.readings || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getLatestVision(zoneId: string): Promise<VisionSignal | null> {
+  if (MOCK) return null;
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/vision/latest/${zoneId}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function getVisionHistory(zoneId: string, limit: number = 50): Promise<VisionSignal[]> {
+  if (MOCK) return [];
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/vision/history/${zoneId}?limit=${limit}`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.readings || [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getZonePressure(zoneId: string, windowHours: number = 3): Promise<{ pressure: number } | null> {
+  if (MOCK) return { pressure: 0.35 };
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/forecast/${zoneId}/pressure?window_hours=${windowHours}`);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+export async function refreshEvents(): Promise<{ success: boolean; refreshed: number }> {
+  if (MOCK) return { success: true, refreshed: 4 };
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/events/refresh`, { method: 'POST' });
+    if (!res.ok) return { success: false, refreshed: 0 };
+    return await res.json();
+  } catch {
+    return { success: false, refreshed: 0 };
+  }
+}
+
 
