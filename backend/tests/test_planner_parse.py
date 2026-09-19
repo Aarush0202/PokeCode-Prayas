@@ -31,7 +31,7 @@ def test_rules_parser_concert_sector17():
 
     res = parse_event_with_rules(text, ref_dt=ref_dt)
     assert res.matched_by == "rules"
-    assert res.fields.zone_id == "ch01"
+    assert res.fields.zone_id == "cd01"
     assert res.fields.event_type == "concert"
     assert res.fields.expected_attendance == 5000
     assert res.fields.draw_level == "high"  # because of 'singer' / 'bollywood'

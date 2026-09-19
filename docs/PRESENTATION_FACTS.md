@@ -58,7 +58,7 @@ Measured using `tools/demo_run.py` on Zone `z3` (Market Street, capacity: 900):
 3. **Bluetooth MAC Randomization & BLE Ratio:**
    - Modern iOS and Android handsets rotate random BLE MAC addresses every 15 minutes. BLE device counts are treated as a relative surge indicator and directional trend proxy rather than an absolute head count.
 4. **Held-Out Named Places:**
-   - The 14 named venues in Chandigarh and Mohali (`ch01`–`ch06`, `mo01`–`mo04`, `rl01`–`rl02`, `fs01`–`fs02`) are forecast-only decision-support locations without live IoT sensors. Only `z1`–`z4` have live multi-modal sensor inputs.
+   - The 28 named venues across Delhi, Gurugram, Chandigarh, and Mohali (`ch01`–`ch03`, `dl04`–`dl08`, `gg01`–`gg06`, `cd01`–`cd06`, `mo01`–`mo04`, `rl01`–`rl02`, `fs01`–`fs02`) are forecast-only decision-support locations without live IoT sensors. Only `z1`–`z4` have live multi-modal sensor inputs.
 
 ---
 

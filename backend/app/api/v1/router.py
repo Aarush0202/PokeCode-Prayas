@@ -20,6 +20,8 @@ _MODULES = [
     ("events", "/events", "Events"),
     ("forecast", "/forecast", "Forecast"),
     ("risk", "/risk", "Risk"),
+    ("planner", "", "Planner"),
+    ("planner_parse", "", "Planner Parse"),
 ]
 
 for _name, _prefix, _tag in _MODULES:
