@@ -1,24 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import './App.css';
 import { useLiveRisk } from './hooks/useLiveRisk';
-import { getAlerts, checkBackendHealth } from './services/api';
-import type { Alert } from './types/crowdguard';
+import { getAlerts, getEvents, checkBackendHealth } from './services/api';
+import type { Alert, EventItem, IncidentLogEntry } from './types/crowdguard';
 import { AlertBanner } from './components/AlertBanner';
 import { ZoneGrid } from './components/ZoneGrid';
 import { SignalBreakdown } from './components/SignalBreakdown';
 import { ForecastChart } from './components/ForecastChart';
 import { ControlPanel } from './components/ControlPanel';
 import { EventTimeline } from './components/EventTimeline';
-import { LoginPage, type UserProfile } from './components/LoginPage';
+import { ForecastLinkageStrip } from './components/ForecastLinkageStrip';
+import { IncidentLog } from './components/IncidentLog';
+import { LoginPage, DUMMY_ACCOUNTS, type UserProfile } from './components/LoginPage';
 import { Shield, Activity, TrendingUp, Radio, AlertOctagon, Sun, Moon, LogOut } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem('crowdguard_user');
-      return saved ? JSON.parse(saved) : null;
+      return saved ? JSON.parse(saved) : DUMMY_ACCOUNTS[0];
     } catch {
-      return null;
+      return DUMMY_ACCOUNTS[0];
     }
   });
 
@@ -33,10 +35,49 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'live' | 'forecast'>('live');
   const [selectedZoneId, setSelectedZoneId] = useState<string>('z3'); // Default to Market Street (high interest)
   const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [backendStatus, setBackendStatus] = useState<{ status: string; latencyMs: number }>({
     status: 'healthy',
     latencyMs: 12,
   });
+
+  // Incident & Alert Timeline Log State
+  const [incidentLogs, setIncidentLogs] = useState<IncidentLogEntry[]>([
+    {
+      id: 'inc-01',
+      timestamp: '14:02:18',
+      zone_id: 'z2',
+      zone_name: 'Metro Concourse',
+      tier: 'HIGH',
+      previous_tier: 'NORMAL',
+      driver: 'BLE device surge +62% (RF phones detected in subway tunnel ingress)',
+      risk_score: 0.76,
+    },
+    {
+      id: 'inc-02',
+      timestamp: '14:18:45',
+      zone_id: 'z3',
+      zone_name: 'Market Street Corridor',
+      tier: 'HIGH',
+      previous_tier: 'ELEVATED',
+      driver: 'Optical camera density 0.78 persons/m² at bottleneck choke point',
+      risk_score: 0.82,
+    },
+    {
+      id: 'inc-03',
+      timestamp: '14:35:10',
+      zone_id: 'z1',
+      zone_name: 'Main Gate Plaza',
+      tier: 'NORMAL',
+      previous_tier: 'ELEVATED',
+      driver: 'Tactical de-escalation by Officer Rajesh Kumar (corridors cleared)',
+      risk_score: 0.28,
+    },
+  ]);
+
+  const handleLogIncident = (entry: IncidentLogEntry) => {
+    setIncidentLogs((prev) => [entry, ...prev]);
+  };
 
   // Apply theme to document element
   useEffect(() => {
@@ -81,6 +122,20 @@ export const App: React.FC = () => {
     return () => {
       isMounted = false;
       clearInterval(id);
+    };
+  }, [currentUser]);
+
+  // Fetch forecast events for linkage strip
+  useEffect(() => {
+    if (!currentUser) return;
+    let isMounted = true;
+    getEvents(48)
+      .then((res) => {
+        if (isMounted) setEvents(res.events);
+      })
+      .catch((err) => console.warn('Events fetch fallback:', err));
+    return () => {
+      isMounted = false;
     };
   }, [currentUser]);
 
@@ -130,6 +185,11 @@ export const App: React.FC = () => {
   const selectedZone = useMemo(() => {
     return zones.find((z) => z.zone_id === selectedZoneId) ?? zones[0] ?? null;
   }, [zones, selectedZoneId]);
+
+  // Find elevated/high risk zone for Forecast Linkage Strip (The core pitch)
+  const forecastTriggerZone = useMemo(() => {
+    return zones.find(z => z.risk_tier === 'HIGH' || z.risk_tier === 'CRITICAL' || z.risk_tier === 'ELEVATED') || selectedZone;
+  }, [zones, selectedZone]);
 
   // Seconds since last telemetry update
   const [secondsAgo, setSecondsAgo] = useState<number>(0);
@@ -230,6 +290,45 @@ export const App: React.FC = () => {
               {theme === 'light' ? <Moon size={14} /> : <Sun size={14} />}
             </button>
 
+            {/* Role Switcher Pill for Live Demonstrations */}
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '3px 8px',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--bg-surface-elevated)',
+                border: '1px solid var(--border-subtle)',
+              }}
+            >
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>ROLE:</span>
+              <select
+                value={currentUser.id}
+                onChange={(e) => {
+                  const found = DUMMY_ACCOUNTS.find((u) => u.id === e.target.value);
+                  if (found) handleLogin(found);
+                }}
+                aria-label="Active Security Role Switcher"
+                style={{
+                  backgroundColor: 'var(--bg-surface)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '4px',
+                  padding: '2px 6px',
+                  fontSize: '0.76rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {DUMMY_ACCOUNTS.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.role.split(' ')[0]} ({acc.name.split(' ')[1] || acc.name})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Logged in User Profile Chip */}
             <div
               style={{
@@ -291,7 +390,13 @@ export const App: React.FC = () => {
       <main className="app-main">
         {activeTab === 'live' ? (
           <>
-            {/* 4-Zone Live Telemetry Grid */}
+            {/* Forecast-to-Live Predictive Linkage Strip */}
+            <ForecastLinkageStrip
+              zone={forecastTriggerZone}
+              events={events}
+            />
+
+            {/* 4-Zone Live Telemetry Grid & Floorplan Map */}
             <ZoneGrid
               zones={zones}
               selectedZoneId={selectedZoneId}
@@ -301,10 +406,18 @@ export const App: React.FC = () => {
             {/* Multimodal Sensor Fusion Discrepancy Component */}
             <SignalBreakdown zone={selectedZone} />
 
-            {/* Presenter Ingestion / Simulation Panel */}
+            {/* Incident & Telemetry Transition Audit Timeline */}
+            <IncidentLog
+              logs={incidentLogs}
+              onClearLogs={() => setIncidentLogs([])}
+            />
+
+            {/* Presenter Ingestion / Simulation Panel with RBAC */}
             <ControlPanel
               zonesList={zonesSummaryList}
               onTelemetryUpdated={() => refetch()}
+              currentUser={currentUser}
+              onLogIncident={handleLogIncident}
             />
           </>
         ) : (
