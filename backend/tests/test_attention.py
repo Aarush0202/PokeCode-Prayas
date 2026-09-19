@@ -47,19 +47,76 @@ def test_attention_endpoint_structure():
     assert isinstance(groups["needs_checking"], list)
 
 
-def test_needs_checking_empty_store_or_named_places():
-    """Unmonitored zones and held-out venues are classified under needs_checking with observed=False."""
+def test_needs_checking_empty_store_contains_only_instrumented_zones():
+    """Empty store flags instrumented zones (z1-z4) in needs_checking, and never named places."""
     resp = client.get("/api/v1/attention")
     assert resp.status_code == 200
     data = resp.json()
 
     needs_checking = data["groups"]["needs_checking"]
-    assert len(needs_checking) > 0
+    # Only instrumented zones z1-z4 should appear
+    zone_ids = [item["zone_id"] for item in needs_checking]
+    assert set(zone_ids) == {"z1", "z2", "z3", "z4"}
+    assert len(needs_checking) <= 5
 
-    # Every needs_checking item from empty store or named places must have observed=False or stale
     for item in needs_checking:
         assert item["category"] == "needs_checking"
         assert item["level"] == "no_data" or item["signal_status"] in ("stale", "none")
+
+
+def test_named_places_never_appear_in_needs_checking():
+    """Named/held-out places (ch01, etc.) must NEVER appear in needs_checking under any store state."""
+    from app.data.named_places import NAMED_PLACES
+    named_place_ids = {np.id for np in NAMED_PLACES}
+
+    resp = client.get("/api/v1/attention")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    needs_checking_ids = {item["zone_id"] for item in data["groups"]["needs_checking"]}
+    # Intersection must be completely empty
+    intersection = named_place_ids.intersection(needs_checking_ids)
+    assert len(intersection) == 0, f"Named places appeared in needs_checking: {intersection}"
+
+
+def test_group_cap_enforces_maximum_5_items(monkeypatch):
+    """Even if >5 zones qualify for a category, only top 5 highest urgency items are returned."""
+    from app.schemas.shared import ZoneRisk
+    from app.services import fusion
+
+    # Mock evaluate_all_zones returning 8 zones qualifying for act_now
+    dummy_risks = [
+        ZoneRisk(
+            zone_id=f"z{i}",
+            zone_name=f"Test Zone {i}",
+            timestamp=datetime.now(timezone.utc),
+            risk_score=0.70 + (i * 0.02),
+            risk_tier=RiskTier.HIGH,
+            level=RiskTier.HIGH,
+            fused_estimate=700,
+            occupancy=0.75,
+            capacity=1000,
+            reasons=["Surge test"],
+            has_live_signals=True,
+            signal_status="ok",
+        )
+        for i in range(1, 9)
+    ]
+
+    monkeypatch.setattr(fusion, "evaluate_all_zones", lambda: dummy_risks)
+    monkeypatch.setattr(attention, "ZONE_BY_ID", {f"z{i}": None for i in range(1, 9)})
+
+    resp = client.get("/api/v1/attention")
+    assert resp.status_code == 200
+    data = resp.json()
+
+    act_now = data["groups"]["act_now"]
+    assert len(act_now) == 5
+    assert data["counts"]["act_now"] == 5
+
+    # Confirm it kept the top 5 highest risk_score
+    scores = [item["risk_score"] for item in act_now]
+    assert scores == sorted(scores, reverse=True)
 
 
 def test_act_now_on_critical_crowd_surge():

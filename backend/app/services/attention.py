@@ -206,20 +206,26 @@ def evaluate_attention_items(now: Optional[datetime] = None) -> AttentionRespons
     watch_soon_items.sort(key=lambda x: (x.priority, -x.risk_score))
     needs_checking_items.sort(key=lambda x: (x.priority, -x.occupancy))
 
-    all_items = act_now_items + watch_soon_items + needs_checking_items
+    # Enforce strict 5-item cap per group (highest urgency / soonest first, drop the rest)
+    GROUP_CAP = 5
+    act_now_capped = act_now_items[:GROUP_CAP]
+    watch_soon_capped = watch_soon_items[:GROUP_CAP]
+    needs_checking_capped = needs_checking_items[:GROUP_CAP]
+
+    all_items = act_now_capped + watch_soon_capped + needs_checking_capped
 
     return AttentionResponse(
         generated_at=current_time,
         counts=AttentionCounts(
             total=len(all_items),
-            act_now=len(act_now_items),
-            watch_soon=len(watch_soon_items),
-            needs_checking=len(needs_checking_items),
+            act_now=len(act_now_capped),
+            watch_soon=len(watch_soon_capped),
+            needs_checking=len(needs_checking_capped),
         ),
         groups={
-            "act_now": act_now_items,
-            "watch_soon": watch_soon_items,
-            "needs_checking": needs_checking_items,
+            "act_now": act_now_capped,
+            "watch_soon": watch_soon_capped,
+            "needs_checking": needs_checking_capped,
         },
         items=all_items,
     )
@@ -243,6 +249,39 @@ def _triage_zone(
     is_ack = z_state.get("acknowledged", False)
     drivers = list(z.reasons)
 
+    is_named_place = zone_id not in ZONE_BY_ID
+
+    # Rule: Named/held-out places (anything not z1-z4) must NEVER appear in needs_checking.
+    # They were never expected to have physical sensors, so lack of live data is normal.
+    # They should only ever appear in watch_soon (if forecast crosses threshold) or not appear at all.
+    if is_named_place:
+        if pressure >= 0.50:
+            return AttentionItem(
+                id=f"att-{zone_id}-watch_soon",
+                zone_id=zone_id,
+                zone_name=zone_name,
+                category=AttentionCategory.WATCH_SOON,
+                priority=4,
+                title=f"Forecast Surge Predicted: {zone_name}",
+                summary=(
+                    f"Predictive models forecast heavy pedestrian influx ({int(pressure * 100)}% capacity pressure) "
+                    f"over the next 3 hours at this uninstrumented venue."
+                ),
+                risk_score=score,
+                risk_tier=tier,
+                level=level,
+                occupancy=occupancy,
+                observed=False,  # Unmonitored venue projection
+                signal_status=status_str,
+                acknowledged=is_ack,
+                created_at=now,
+                recommended_action="Review scheduled event calendar and pre-position crowd safety stewards.",
+                drivers=drivers or ["Predictive model forecast surge"],
+            )
+        return None
+
+    # --- Instrumented Zones (z1-z4) Only ---
+
     # 1. Check for NEEDS_CHECKING conditions
     is_no_data = (
         level == RiskTier.NO_DATA
@@ -252,30 +291,23 @@ def _triage_zone(
     )
 
     if is_no_data:
-        is_named_place = zone_id not in ZONE_BY_ID
-        title = f"Telemetry Offline: {zone_name}" if is_named_place else f"Sensor Telemetry Lost: {zone_name}"
-        summary = (
-            "Held-out public venue operating in forecast-only mode (no IoT sensors installed)."
-            if is_named_place
-            else "Primary sensors disconnected. Zone operating in unmonitored fail-safe mode."
-        )
         return AttentionItem(
             id=f"att-{zone_id}-needs_checking",
             zone_id=zone_id,
             zone_name=zone_name,
             category=AttentionCategory.NEEDS_CHECKING,
             priority=5,
-            title=title,
-            summary=summary,
+            title=f"Sensor Telemetry Lost: {zone_name}",
+            summary="Primary sensors disconnected. Zone operating in unmonitored fail-safe mode.",
             risk_score=score,
             risk_tier=tier,
             level=level,
             occupancy=occupancy,
-            observed=False,  # Unmonitored venue
+            observed=False,
             signal_status=status_str,
             acknowledged=is_ack,
             created_at=now,
-            recommended_action="Deploy mobile BLE scanner unit or verify CCTV video stream.",
+            recommended_action="Inspect gateway connection or deploy portable BLE scanner unit.",
             drivers=drivers or ["No live IoT telemetry available"],
         )
 
