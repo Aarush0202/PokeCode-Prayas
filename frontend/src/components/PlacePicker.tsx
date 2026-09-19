@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import type { Zone } from '../types/crowdguard';
 import { getZones, isDegraded } from '../services/api';
+import { FIXTURE_ZONES } from '../mocks/fixtures';
 import {
   MapPin,
   Search,
@@ -25,7 +26,7 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({
   className = '',
   compact = false,
 }) => {
-  const [zones, setZones] = useState<Zone[]>([]);
+  const [zones, setZones] = useState<Zone[]>(FIXTURE_ZONES);
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [liveOnly, setLiveOnly] = useState(false);
@@ -41,12 +42,21 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({
     getZones()
       .then((data) => {
         if (isMounted) {
-          setZones(data);
+          const list = Array.isArray(data)
+            ? data
+            : (data as any)?.zones && Array.isArray((data as any).zones)
+            ? (data as any).zones
+            : FIXTURE_ZONES;
+          setZones(list);
           setDegraded(isDegraded());
         }
       })
       .catch((err) => {
-        console.warn('[PlacePicker] Failed to load zones:', err);
+        console.warn('[PlacePicker] Failed to load zones, using fixtures:', err);
+        if (isMounted) {
+          setZones(FIXTURE_ZONES);
+          setDegraded(true);
+        }
       });
     return () => {
       isMounted = false;
@@ -73,27 +83,35 @@ export const PlacePicker: React.FC<PlacePickerProps> = ({
     }
   }, [isOpen]);
 
+  const safeZones = useMemo(() => {
+    return Array.isArray(zones) && zones.length > 0 ? zones : FIXTURE_ZONES;
+  }, [zones]);
+
   const selectedZone = useMemo(() => {
-    return zones.find((z) => z.id === selectedZoneId) || zones.find((z) => z.id === 'z3') || zones[0];
-  }, [zones, selectedZoneId]);
+    return (
+      safeZones.find((z) => z.id === selectedZoneId) ||
+      safeZones.find((z) => z.id === 'z3') ||
+      safeZones[0]
+    );
+  }, [safeZones, selectedZoneId]);
 
   // Categorize zones: Live sensors (z1..z4) vs Forecast only
-  const isLiveSensorZone = (z: Zone) => ['z1', 'z2', 'z3', 'z4'].includes(z.id);
+  const isLiveSensorZone = (z?: Zone | null) => Boolean(z?.id && ['z1', 'z2', 'z3', 'z4'].includes(z.id));
 
   // Filtered zones
   const filteredZones = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return zones.filter((z) => {
+    return safeZones.filter((z) => {
       if (liveOnly && !isLiveSensorZone(z)) return false;
       if (!q) return true;
       return (
-        z.name.toLowerCase().includes(q) ||
-        z.id.toLowerCase().includes(q) ||
+        (z.name && z.name.toLowerCase().includes(q)) ||
+        (z.id && z.id.toLowerCase().includes(q)) ||
         (z.city && z.city.toLowerCase().includes(q)) ||
         (z.category && z.category.toLowerCase().includes(q))
       );
     });
-  }, [zones, search, liveOnly]);
+  }, [safeZones, search, liveOnly]);
 
   // Group filtered zones: "Live Sensors" group, then groups by City for forecast-only
   const groupedData = useMemo(() => {
