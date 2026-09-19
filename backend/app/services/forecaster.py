@@ -582,14 +582,24 @@ def get_forecast_pressure(zone_id: str, window_hours: int = 3) -> Dict[str, Any]
     }
 
 
-def baseline_ratio_series(zone: Zone, timestamps: List[datetime]) -> List[float]:
+def baseline_ratio_series(zone: Any, timestamps: List[datetime]) -> List[float]:
     """Return the baseline occupancy ratio series [0.0, 1.0] across given timestamps with no special events.
     
-    This fulfills the cross-team contract required by Person C's Event Planner.
+    This fulfills the cross-team contract required by Person C's Event Planner and Attention Panel.
     Works with both the trained ML category model and the rule-based fallback.
     """
+    if isinstance(zone, str):
+        zone_obj = ZONE_BY_ID.get(zone)
+    else:
+        zone_obj = getattr(zone, "id", None)
+        if zone_obj and zone_obj in ZONE_BY_ID:
+            zone_obj = ZONE_BY_ID[zone_obj]
+        else:
+            zone_obj = zone
+
     model = load_model()
-    cat_str = get_zone_category_str(zone)
+    cat_str = get_zone_category_str(zone_obj) if zone_obj else "market"
+    zone_id = getattr(zone_obj, "id", str(zone))
     ratios: List[float] = []
 
     for ts in timestamps:
@@ -607,7 +617,7 @@ def baseline_ratio_series(zone: Zone, timestamps: List[datetime]) -> List[float]
         # Weather: neutral defaults (28°C, 0mm rain) unless zone forecast exists
         temp_c, rain_mm = 28.0, 0.0
         try:
-            temp_c, rain_mm = event_fetcher.get_weather_for_zone_hour(zone.id, ts)
+            temp_c, rain_mm = event_fetcher.get_weather_for_zone_hour(zone_id, ts)
         except Exception:
             pass
 
