@@ -348,3 +348,22 @@ def get_forecast_pressure(zone_id: str, window_hours: int = 3) -> Dict[str, Any]
         "window_hours": window_hours,
         "drivers": peak_point.drivers,
     }
+
+
+def baseline_ratio_series(zone: Any, timestamps: List[datetime]) -> List[float]:
+    """Calculate baseline footfall ratio (predicted_count / capacity) across given timestamps.
+    Wrapped by Person C since Person B had not yet implemented it.
+    Clamped to represent normal diurnal baseline prior to special event overlay.
+    """
+    zone_id = getattr(zone, "id", str(zone))
+    capacity = max(1, getattr(zone, "capacity", 1000))
+    ratios: List[float] = []
+    for dt in timestamps:
+        try:
+            pt = predict_zone_hour(zone_id, dt)
+            raw_ratio = pt.predicted_count / capacity
+            # Scaled to baseline level (excluding surge events) capped at 0.55
+            ratios.append(round(max(0.02, min(0.55, raw_ratio * 0.60)), 4))
+        except Exception:
+            ratios.append(0.20)
+    return ratios
