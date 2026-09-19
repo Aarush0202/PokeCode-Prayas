@@ -1,1 +1,1 @@
-# CrowdGuard services package
+# CrowdGuard shared services package
