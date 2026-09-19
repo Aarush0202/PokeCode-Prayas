@@ -12,7 +12,9 @@ import { EventTimeline } from './components/EventTimeline';
 import { ForecastLinkageStrip } from './components/ForecastLinkageStrip';
 import { IncidentLog } from './components/IncidentLog';
 import { LoginPage, DUMMY_ACCOUNTS, type UserProfile } from './components/LoginPage';
-import { Shield, Activity, TrendingUp, Radio, AlertOctagon, Sun, Moon, LogOut } from 'lucide-react';
+import { EventPlanner } from './components/EventPlanner';
+import { AboutForecastModal } from './components/AboutForecastModal';
+import { Shield, Activity, TrendingUp, Layers, Radio, AlertOctagon, Sun, Moon, LogOut } from 'lucide-react';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
@@ -32,8 +34,10 @@ export const App: React.FC = () => {
     }
   });
 
-  const [activeTab, setActiveTab] = useState<'live' | 'forecast'>('live');
+  const [activeTab, setActiveTab] = useState<'live' | 'forecast' | 'planner'>('live');
+  const [showMetricsModal, setShowMetricsModal] = useState<boolean>(false);
   const [selectedZoneId, setSelectedZoneId] = useState<string>('z3'); // Default to Market Street (high interest)
+
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [backendStatus, setBackendStatus] = useState<{ status: string; latencyMs: number }>({
@@ -247,6 +251,29 @@ export const App: React.FC = () => {
               <TrendingUp size={14} />
               <span>Predictive Forecast (48h)</span>
             </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === 'planner'}
+              className={`tab-btn ${activeTab === 'planner' ? 'active' : ''}`}
+              onClick={() => setActiveTab('planner')}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Layers size={14} />
+              <span>Event Planner</span>
+              <span
+                style={{
+                  fontSize: '0.62rem',
+                  backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                  color: '#60a5fa',
+                  padding: '1px 5px',
+                  borderRadius: 'var(--radius-full)',
+                  fontWeight: 800,
+                  letterSpacing: '0.04em',
+                }}
+              >
+                BETA
+              </span>
+            </button>
           </div>
 
           {/* Operational Status & Telemetry Pill */}
@@ -420,27 +447,39 @@ export const App: React.FC = () => {
               onLogIncident={handleLogIncident}
             />
           </>
-        ) : (
+        ) : activeTab === 'forecast' ? (
           <>
             {/* 48-Hour Predictive Horizon Chart with Event Driver Spikes */}
             <ForecastChart
               selectedZoneId={selectedZoneId}
               zonesList={zonesSummaryList}
               onSelectZone={(id) => setSelectedZoneId(id)}
+              onOpenMetrics={() => setShowMetricsModal(true)}
             />
 
             {/* Scheduled City Events & Transit Peaks */}
             <EventTimeline zoneMap={zoneMap} />
           </>
+        ) : (
+          <EventPlanner
+            initialZoneId={selectedZoneId}
+            onSelectZone={(id) => setSelectedZoneId(id)}
+          />
         )}
       </main>
+
+      {/* Model Evaluation Metrics Modal */}
+      <AboutForecastModal
+        isOpen={showMetricsModal}
+        onClose={() => setShowMetricsModal(false)}
+      />
 
       {/* Pitch One-Liner Footer */}
       <footer className="app-footer">
         <div className="footer-content">
           <div>
             <strong>CrowdGuard Defense Doctrine:</strong> Existing systems react to a crowd that has already formed.
-            CrowdGuard predicts where crowds will form from city event data, then verifies on the ground with camera and Bluetooth signals that cover each other's blind spots.
+            CrowdGuard forecasts where crowds will form from city event data (calibrated on synthetic footfall), then verifies on the ground with camera and Bluetooth signals that cover each other's blind spots. No faces stored.
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
             <AlertOctagon size={14} color="var(--text-muted)" />
