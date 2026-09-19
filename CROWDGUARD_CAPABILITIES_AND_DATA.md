@@ -156,6 +156,17 @@ CrowdGuard leverages four distinct data streams:
   - `z3`: **Market Street** (Narrow Pedestrian Corridor, Capacity: 900 people)
   - `z4`: **Food Court** (Enclosed Dining Hall, Capacity: 300 people)
 
+### Data Stream 5: Empirical Transit Benchmarks (Delhi Metro Rail Corporation)
+- **Source:** DMRC Official Passenger Journey Records (2010–2022).
+- **Macro Calibration Figures:**
+  - Annual network volume: 81 Cr rides (2010) scaling to ~1,000+ Cr rides (2017).
+  - Pre-COVID peak: **50.65 Lakh (5.065 million) daily passenger journeys**.
+  - Normalization: 41.21 Lakh daily passenger journeys (June 2022).
+- **Application in CrowdGuard:**
+  - Directly parameterizes the `transit_hub` venue category in the ML generator (`tools/generate_training_data.py`) and explainability engine (`backend/app/services/forecaster.py`).
+  - Models empirical rush-hour dual peaks (08:00–10:00 morning office commute at ~74% capacity, 17:00–20:00 evening return rush at ~80% capacity) and quarterly seasonal distributions (Q1: 24.1%, Q2: 24.4%, Q3: 26.1% monsoon/academic surge, Q4: 25.4% festive rush).
+  - Supplies empirical ground truth for hackathon judging and the CrowdGuard Honesty Rule.
+
 ---
 
 ## 6. The Mathematical Fusion Model

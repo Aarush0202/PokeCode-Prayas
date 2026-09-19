@@ -100,3 +100,146 @@ def test_forecast_fallback_when_model_absent(monkeypatch):
     pres_resp = client.get("/api/v1/forecast/z1/pressure")
     assert pres_resp.status_code == 200
     assert 0.0 <= pres_resp.json()["pressure"] <= 1.0
+
+
+def test_forecast_named_place_ch01_schema_parity():
+    """GET /forecast/ch01?hours=24 returns 200 with 24 points and identical schema to /forecast/z3."""
+    res_ch01 = client.get("/api/v1/forecast/ch01?hours=24")
+    assert res_ch01.status_code == 200
+    data_ch01 = res_ch01.json()
+    assert data_ch01["zone_id"] == "ch01"
+    assert data_ch01["horizon_hours"] == 24
+    assert len(data_ch01["points"]) == 24
+
+    res_z3 = client.get("/api/v1/forecast/z3?hours=24")
+    assert res_z3.status_code == 200
+    data_z3 = res_z3.json()
+
+    # Top-level keys must match exactly
+    assert set(data_ch01.keys()) == set(data_z3.keys())
+
+    # Point fields must match exactly
+    pt_ch01 = data_ch01["points"][0]
+    pt_z3 = data_z3["points"][0]
+    assert set(pt_ch01.keys()) == set(pt_z3.keys())
+    assert {"timestamp", "predicted_count", "predicted_density", "risk_tier", "drivers"} <= set(pt_ch01.keys())
+
+
+def test_feature_columns_no_data_leakage():
+    """Feature list strictly excludes place_id, city, lat, lon, and capacity."""
+    cols_path = forecaster.get_feature_columns_path()
+    assert cols_path.is_file(), f"Missing feature columns file at {cols_path}"
+
+    import json
+    with open(cols_path, "r") as f:
+        feature_cols = json.load(f)
+
+    forbidden = {"place_id", "city", "lat", "lon", "capacity", "zone_capacity", "zone_area"}
+    for f in feature_cols:
+        assert f not in forbidden, f"Leaked feature '{f}' detected in training features!"
+
+    model = forecaster.load_model()
+    if model is not None and hasattr(model, "feature_names_in_"):
+        for f in model.feature_names_in_:
+            assert f not in forbidden, f"Leaked feature '{f}' in trained model artifact!"
+
+
+def test_shape_generalization_ist_peaks():
+    """Shape generalization: markets peak in evening weekend, transit hubs peak in commute hours."""
+    from zoneinfo import ZoneInfo
+    ist = ZoneInfo("Asia/Kolkata")
+
+    # Pick an upcoming Saturday
+    now = datetime.now(ist)
+    days_to_sat = (5 - now.weekday()) % 7
+    if days_to_sat == 0:
+        days_to_sat = 7
+    sat_date = (now + timedelta(days=days_to_sat)).date()
+
+    # Compare weekend 19:00 IST vs 03:00 IST for two markets (z3 and ch01)
+    for mkt_id in ["z3", "ch01"]:
+        zone = forecaster.resolve_zone(mkt_id)
+        assert zone is not None
+        pt_eve = forecaster.predict_zone_hour(zone, datetime(sat_date.year, sat_date.month, sat_date.day, 19, 0, tzinfo=ist))
+        pt_night = forecaster.predict_zone_hour(zone, datetime(sat_date.year, sat_date.month, sat_date.day, 3, 0, tzinfo=ist))
+        assert pt_eve.predicted_count > pt_night.predicted_count * 3, f"Market {mkt_id} did not peak on weekend evening!"
+
+    # Pick an upcoming Wednesday
+    days_to_wed = (2 - now.weekday()) % 7
+    if days_to_wed == 0:
+        days_to_wed = 7
+    wed_date = (now + timedelta(days=days_to_wed)).date()
+
+    # Compare weekday 09:00 IST vs 03:00 IST for two transit hubs (z2 and ch02)
+    for tr_id in ["z2", "ch02"]:
+        zone = forecaster.resolve_zone(tr_id)
+        assert zone is not None
+        pt_rush = forecaster.predict_zone_hour(zone, datetime(wed_date.year, wed_date.month, wed_date.day, 9, 0, tzinfo=ist))
+        pt_night = forecaster.predict_zone_hour(zone, datetime(wed_date.year, wed_date.month, wed_date.day, 3, 0, tzinfo=ist))
+        assert pt_rush.predicted_count > pt_night.predicted_count * 2, f"Transit hub {tr_id} did not peak on weekday morning rush!"
+
+
+def test_model_metrics_heldout_beats_baseline():
+    """Overall held-out MAE is below the global-mean baseline MAE."""
+    resp = client.get("/api/v1/forecast/metrics")
+    assert resp.status_code == 200
+    metrics = resp.json()
+
+    assert "overall_mae_pct_capacity" in metrics
+    assert "baseline_mae_pct_capacity" in metrics
+    assert "by_category" in metrics
+
+    overall_mae = metrics["overall_mae_pct_capacity"]
+    global_baseline = metrics["baseline_mae_pct_capacity"]["global_mean"]
+
+    assert overall_mae < global_baseline, f"Model MAE {overall_mae}% did not beat global baseline {global_baseline}%!"
+
+    # Check that all 6 categories are represented
+    expected_categories = {"market", "transit_hub", "religious_site", "campus_ground", "food_street", "public_square"}
+    assert set(metrics["by_category"].keys()) == expected_categories
+
+
+def test_fallback_for_named_place_when_model_absent(monkeypatch):
+    """Fallback works for a named place with model file absent."""
+    monkeypatch.setattr(forecaster, "load_model", lambda: None)
+
+    resp = client.get("/api/v1/forecast/ch01?hours=12")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["zone_id"] == "ch01"
+    assert len(data["points"]) == 12
+
+
+def test_baseline_ratio_series_ml_and_fallback(monkeypatch):
+    """baseline_ratio_series works for z3 and ch01 with model and with fallback."""
+    from zoneinfo import ZoneInfo
+    ist = ZoneInfo("Asia/Kolkata")
+    test_times = [
+        datetime(2026, 9, 26, 10, 0, tzinfo=ist),
+        datetime(2026, 9, 26, 19, 0, tzinfo=ist),
+        datetime(2026, 9, 27, 2, 0, tzinfo=ist),
+    ]
+
+    for zid in ["z3", "ch01"]:
+        zone = forecaster.resolve_zone(zid)
+        assert zone is not None
+
+        # 1. With ML model loaded
+        ratios_ml = forecaster.baseline_ratio_series(zone, test_times)
+        assert len(ratios_ml) == len(test_times)
+        for r in ratios_ml:
+            assert isinstance(r, float)
+            assert 0.0 <= r <= 1.0
+
+        # Evening peak ratio should exceed 2 AM ratio
+        assert ratios_ml[1] > ratios_ml[2]
+
+        # 2. With fallback (model forced None)
+        monkeypatch.setattr(forecaster, "load_model", lambda: None)
+        ratios_fb = forecaster.baseline_ratio_series(zone, test_times)
+        assert len(ratios_fb) == len(test_times)
+        for r in ratios_fb:
+            assert isinstance(r, float)
+            assert 0.0 <= r <= 1.0
+        assert ratios_fb[1] > ratios_fb[2]
+
