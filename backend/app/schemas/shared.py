@@ -8,11 +8,24 @@ from typing import List, Optional
 from pydantic import BaseModel, Field
 
 
+class VenueCategory(str, Enum):
+    MARKET = "market"
+    TRANSIT_HUB = "transit_hub"
+    RELIGIOUS_SITE = "religious_site"
+    CAMPUS_GROUND = "campus_ground"
+    FOOD_STREET = "food_street"
+    PUBLIC_SQUARE = "public_square"
+
+
 class RiskTier(str, Enum):
     NORMAL = "NORMAL"
     ELEVATED = "ELEVATED"
     HIGH = "HIGH"
     CRITICAL = "CRITICAL"
+    NO_DATA = "no_data"
+
+
+RiskLevel = RiskTier
 
 
 class Zone(BaseModel):
@@ -22,6 +35,8 @@ class Zone(BaseModel):
     area_sqm: float
     lat: float
     lon: float
+    category: VenueCategory = VenueCategory.PUBLIC_SQUARE
+    city: str = "Gurugram"
 
 
 class Flow(BaseModel):
@@ -70,6 +85,7 @@ class EventItem(BaseModel):
     expected_attendance: int = 0
     source: str = "synthetic"
     zone_id: Optional[str] = None
+    is_illustrative: bool = False
 
 
 class EventsResponse(BaseModel):
@@ -100,12 +116,22 @@ class ZoneRisk(BaseModel):
     timestamp: datetime
     risk_score: float
     risk_tier: RiskTier
+    level: RiskTier = Field(default=RiskTier.NORMAL)
     fused_estimate: int
+    occupancy: float = 0.0
     capacity: int
     vision: Optional[VisionSignal] = None
     beacon: Optional[BeaconSignal] = None
     forecast_pressure: float = 0.0
     reasons: List[str] = Field(default_factory=list)
+    has_live_signals: bool = True
+    signal_status: str = "ok"  # "ok" | "stale" | "none"
+
+    def model_post_init(self, __context) -> None:
+        if self.level == RiskTier.NORMAL and self.risk_tier != RiskTier.NORMAL:
+            object.__setattr__(self, "level", self.risk_tier)
+        elif self.risk_tier == RiskTier.NORMAL and self.level != RiskTier.NORMAL:
+            object.__setattr__(self, "risk_tier", self.level)
 
 
 class RiskLiveResponse(BaseModel):
@@ -129,10 +155,10 @@ class AlertsResponse(BaseModel):
 
 
 ZONES: List[Zone] = [
-    Zone(id="z1", name="Main Gate Plaza", capacity=400, area_sqm=500.0, lat=28.4595, lon=77.0266),
-    Zone(id="z2", name="Metro Concourse", capacity=600, area_sqm=450.0, lat=28.4601, lon=77.0289),
-    Zone(id="z3", name="Market Street", capacity=900, area_sqm=1200.0, lat=28.4570, lon=77.0301),
-    Zone(id="z4", name="Food Court", capacity=300, area_sqm=350.0, lat=28.4588, lon=77.0245),
+    Zone(id="z1", name="Main Gate Plaza", capacity=400, area_sqm=500.0, lat=28.4595, lon=77.0266, category=VenueCategory.PUBLIC_SQUARE, city="Gurugram"),
+    Zone(id="z2", name="Metro Concourse", capacity=600, area_sqm=450.0, lat=28.4601, lon=77.0289, category=VenueCategory.TRANSIT_HUB, city="Gurugram"),
+    Zone(id="z3", name="Market Street", capacity=900, area_sqm=1200.0, lat=28.4570, lon=77.0301, category=VenueCategory.MARKET, city="Gurugram"),
+    Zone(id="z4", name="Food Court", capacity=300, area_sqm=350.0, lat=28.4588, lon=77.0245, category=VenueCategory.FOOD_STREET, city="Gurugram"),
 ]
 
 ZONE_BY_ID = {z.id: z for z in ZONES}
