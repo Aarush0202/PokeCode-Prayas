@@ -31,6 +31,24 @@ def get_forecast_metrics() -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail=f"Error reading model metrics: {str(exc)}")
 
 
+@router.get("/{zone_id}/week-pattern")
+def get_zone_week_pattern(
+    zone_id: str,
+    n_last: int = Query(10, ge=3, le=20, description="Number of recent weekday occurrences to average"),
+) -> Dict[str, Any]:
+    """Return seasonal-naive baseline prediction across all 7 days of the week for a zone.
+
+    Returns 404 if zone_id is not found.
+    """
+    res = forecaster.get_week_pattern(zone_id=zone_id, n_last=n_last)
+    if res is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Zone '{zone_id}' not found.",
+        )
+    return res
+
+
 @router.get("/{zone_id}", response_model=ForecastResponse)
 def get_zone_forecast(
     zone_id: str,
@@ -75,3 +93,4 @@ def get_zone_pressure(
         return forecaster.get_forecast_pressure(zone_id=zone_id, window_hours=window_hours)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Pressure calculation error: {str(exc)}")
+
