@@ -1,4 +1,12 @@
-export type RiskTier = 'NORMAL' | 'ELEVATED' | 'HIGH' | 'CRITICAL';
+export type RiskTier = 'NORMAL' | 'ELEVATED' | 'HIGH' | 'CRITICAL' | 'no_data' | 'NO_DATA';
+
+export type VenueCategory =
+  | 'market'
+  | 'transit_hub'
+  | 'religious_site'
+  | 'campus_ground'
+  | 'food_street'
+  | 'public_square';
 
 export interface Zone {
   id: string;
@@ -7,6 +15,13 @@ export interface Zone {
   area_sqm: number;
   lat: number;
   lon: number;
+  category?: VenueCategory | string;
+  city?: string;
+}
+
+export interface ZonesResponse {
+  count: number;
+  zones: Zone[];
 }
 
 export interface Flow {
@@ -43,12 +58,16 @@ export interface ZoneRisk {
   timestamp: string;
   risk_score: number;
   risk_tier: RiskTier;
+  level?: RiskTier;
   fused_estimate: number;
+  occupancy?: number;
   capacity: number;
   vision: VisionSignal | null;
   beacon: BeaconSignal | null;
   forecast_pressure: number;
   reasons: string[];
+  has_live_signals?: boolean;
+  signal_status?: 'ok' | 'stale' | 'none';
 }
 
 export interface RiskLiveResponse {
@@ -87,6 +106,24 @@ export interface ForecastResponse {
   points: ForecastPoint[];
 }
 
+export interface CategoryMetric {
+  mae_pct_capacity: number;
+  n_places: number;
+}
+
+export interface ForecastMetricsResponse {
+  generated_at: string;
+  n_train_venues: number;
+  evaluation: string;
+  disclaimer: string;
+  overall_mae_pct_capacity: number;
+  baseline_mae_pct_capacity: {
+    global_mean: number;
+    category_hour_mean: number;
+  };
+  by_category: Record<string, CategoryMetric>;
+}
+
 export interface EventItem {
   id: string;
   title: string;
@@ -97,8 +134,89 @@ export interface EventItem {
   lon?: number | null;
   category: string;
   expected_attendance: number;
-  source: string;
+  source: 'seed' | 'assumed' | 'synthetic' | 'real' | string;
   zone_id?: string | null;
+  is_illustrative?: boolean;
+}
+
+export type PlannerEventType =
+  | 'concert'
+  | 'sports_match'
+  | 'rally'
+  | 'festival'
+  | 'religious_gathering'
+  | 'other';
+
+export type PlannerDrawLevel = 'normal' | 'high' | 'very_high';
+
+export type PlannerVerdict = 'feasible' | 'feasible_with_mitigations' | 'not_recommended';
+
+export interface PlannerAssessRequest {
+  zone_id: string;
+  start_time: string;
+  duration_hours: number;
+  event_type: PlannerEventType | string;
+  expected_attendance: number;
+  draw_level?: PlannerDrawLevel | string;
+}
+
+export interface PlannerAssessResponse {
+  zone: {
+    id: string;
+    name: string;
+    city: string;
+    category: string;
+    capacity: number;
+    area_sqm: number;
+  };
+  verdict: PlannerVerdict;
+  peak: {
+    time: string;
+    total_present: number;
+    occupancy_ratio: number;
+    density_per_sqm: number;
+  };
+  scenarios: Array<{
+    label: string;
+    attendance: number;
+    peak_ratio: number;
+    verdict: string;
+  }>;
+  timeline: Array<{
+    time: string;
+    baseline: number;
+    event: number;
+    total: number;
+    ratio: number;
+  }>;
+  reasons: string[];
+  mitigations: string[];
+  alternatives: Array<{
+    zone_id: string;
+    name: string;
+    peak_ratio: number;
+    verdict: string;
+  }>;
+  assumptions: string[];
+  disclaimer: string;
+}
+
+export interface PlannerParseRequest {
+  text: string;
+}
+
+export interface PlannerParseResponse {
+  fields: {
+    zone_id?: string | null;
+    start_time?: string | null;
+    duration_hours?: number | null;
+    event_type?: string | null;
+    expected_attendance?: number | null;
+    draw_level?: string | null;
+  };
+  missing: string[];
+  matched_by: 'llm' | 'rules' | string;
+  note: string;
 }
 
 export interface EventsResponse {

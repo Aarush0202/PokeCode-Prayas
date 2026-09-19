@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { VisionAnalyzeResponse, IncidentLogEntry } from '../types/crowdguard';
 import type { UserProfile } from './LoginPage';
 import { analyzeFrame, simulateVision, ingestBeacon, deescalateZone, resetAllZones } from '../services/api';
@@ -31,6 +31,104 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
     setActionSuccess(msg);
     setTimeout(() => setActionSuccess(null), 3500);
   };
+
+  const [demoStep, setDemoStep] = useState<number | null>(null);
+  const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const stopPitchDemo = () => {
+    demoTimersRef.current.forEach(clearTimeout);
+    demoTimersRef.current = [];
+    setDemoStep(null);
+  };
+
+  const runPitchDemo = async () => {
+    stopPitchDemo();
+    setSelectedZone('z3');
+
+    // Step 1: Nominal Baseline
+    setDemoStep(1);
+    await deescalateZone('z3', 225);
+    setVisionCount(225);
+    setBeaconCount(225);
+    onTelemetryUpdated();
+    onLogIncident?.({
+      id: `demo-${Date.now()}-1`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+      zone_id: 'z3',
+      zone_name: 'Market Street Corridor',
+      tier: 'NORMAL',
+      driver: 'Demo Script Step 1: Baseline nominal established (225 occupants)',
+      risk_score: 0.25,
+    });
+
+    // Step 2: BLE Device Surge at 2.5s
+    const t2 = setTimeout(async () => {
+      setDemoStep(2);
+      await ingestBeacon('z3', 720);
+      setBeaconCount(720);
+      onTelemetryUpdated();
+      onLogIncident?.({
+        id: `demo-${Date.now()}-2`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        zone_id: 'z3',
+        zone_name: 'Market Street Corridor',
+        tier: 'ELEVATED',
+        previous_tier: 'NORMAL',
+        driver: 'Demo Script Step 2: Transit ingress surge detected via BLE (+80% phones in arcade)',
+        risk_score: 0.65,
+      });
+    }, 2500);
+
+    // Step 3: Vision Confirms Choke Point Compression at 5.5s
+    const t3 = setTimeout(async () => {
+      setDemoStep(3);
+      await simulateVision('z3', 780);
+      setVisionCount(780);
+      onTelemetryUpdated();
+      onLogIncident?.({
+        id: `demo-${Date.now()}-3`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        zone_id: 'z3',
+        zone_name: 'Market Street Corridor',
+        tier: 'HIGH',
+        previous_tier: 'ELEVATED',
+        driver: 'Demo Script Step 3: Optical Camera confirms high density at bottleneck choke point (86% cap)',
+        risk_score: 0.84,
+      });
+    }, 5500);
+
+    // Step 4: Tactical De-escalation & Resolution at 9.0s
+    const t4 = setTimeout(async () => {
+      setDemoStep(4);
+      await deescalateZone('z3', 250);
+      setVisionCount(250);
+      setBeaconCount(250);
+      onTelemetryUpdated();
+      onLogIncident?.({
+        id: `demo-${Date.now()}-4`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        zone_id: 'z3',
+        zone_name: 'Market Street Corridor',
+        tier: 'NORMAL',
+        previous_tier: 'HIGH',
+        driver: 'Demo Script Step 4: Commander ordered evacuation corridor opened; crowd dispersed safely',
+        risk_score: 0.28,
+      });
+    }, 9000);
+
+    // Finish script at 12.0s
+    const t5 = setTimeout(() => {
+      setDemoStep(null);
+    }, 12000);
+
+    demoTimersRef.current = [t2, t3, t4, t5];
+  };
+
+  useEffect(() => {
+    return () => {
+      demoTimersRef.current.forEach(clearTimeout);
+    };
+  }, []);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!canOverride) {
@@ -238,6 +336,105 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
               <CheckCircle2 size={15} />
               <span>{actionSuccess}</span>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* 1-Click Pitch Demo Scenario Runner */}
+      <div
+        style={{
+          marginBottom: '18px',
+          padding: '12px 16px',
+          borderRadius: 'var(--radius-sm)',
+          backgroundColor: demoStep ? 'rgba(234, 88, 12, 0.08)' : 'var(--bg-surface-elevated)',
+          border: `1.5px solid ${demoStep ? 'var(--tier-high)' : 'var(--border-subtle)'}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div
+            style={{
+              padding: '6px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: demoStep ? 'var(--tier-high)' : 'var(--bg-surface)',
+              color: demoStep ? '#ffffff' : 'var(--text-primary)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Zap size={16} />
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <strong style={{ fontSize: '0.88rem' }}>1-Click Pitch Demonstration Script</strong>
+              {demoStep && (
+                <span
+                  style={{
+                    fontSize: '0.7rem',
+                    backgroundColor: 'var(--tier-high-bg)',
+                    color: 'var(--tier-high)',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    fontWeight: 700,
+                  }}
+                >
+                  STEP {demoStep} OF 4 ACTIVE
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+              {demoStep === 1 && 'Step 1/4: Reset to nominal calm baseline (Market Street, 25% capacity)'}
+              {demoStep === 2 && 'Step 2/4: Bluetooth BLE device surge detected (+80% phones in transit arcade)'}
+              {demoStep === 3 && 'Step 3/4: Optical Camera verifies dangerous compression at north bottleneck (HIGH)'}
+              {demoStep === 4 && 'Step 4/4: Tactical de-escalation ordered by Commander; egress corridor cleared'}
+              {!demoStep && 'Rehearsed automated demo sequence showcasing escalation, sensor discrepancy, and tactical resolution.'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {demoStep ? (
+            <button
+              onClick={stopPitchDemo}
+              style={{
+                backgroundColor: 'var(--bg-surface)',
+                border: '1px solid var(--border-subtle)',
+                color: 'var(--text-secondary)',
+                padding: '6px 12px',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                fontSize: '0.78rem',
+                fontWeight: 600,
+              }}
+            >
+              Cancel Script
+            </button>
+          ) : (
+            <button
+              onClick={runPitchDemo}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                backgroundColor: 'var(--tier-elevated-bg)',
+                border: '1.5px solid var(--tier-elevated)',
+                color: 'var(--tier-elevated)',
+                padding: '7px 14px',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                boxShadow: '0 1px 3px rgba(234, 88, 12, 0.15)',
+              }}
+            >
+              <Zap size={14} />
+              <span>⚡ RUN 60-SEC PITCH DEMO SCENARIO</span>
+            </button>
           )}
         </div>
       </div>

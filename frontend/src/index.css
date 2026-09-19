@@ -180,6 +180,30 @@ code, pre {
   border: 1px solid var(--tier-critical-border);
 }
 
+.tier-no_data,
+.tier-NO_DATA {
+  color: var(--text-muted);
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(100, 116, 139, 0.08),
+    rgba(100, 116, 139, 0.08) 5px,
+    rgba(100, 116, 139, 0.16) 5px,
+    rgba(100, 116, 139, 0.16) 10px
+  );
+  border: 1px dashed var(--border-active);
+}
+
+.zone-card-no_data {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(100, 116, 139, 0.04),
+    rgba(100, 116, 139, 0.04) 10px,
+    rgba(100, 116, 139, 0.09) 10px,
+    rgba(100, 116, 139, 0.09) 20px
+  ) !important;
+  border: 1.5px dashed var(--border-active) !important;
+}
+
 /* Live Pulse Indicator */
 @keyframes pulse-ring {
   0% { transform: scale(0.9); opacity: 0.8; }
