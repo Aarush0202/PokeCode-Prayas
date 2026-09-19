@@ -1,0 +1,35 @@
+name: Automated Deploy Trigger (CD)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  trigger-deploy:
+    name: Trigger Cloud Deployments
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Render Deploy Hook (If Configured)
+        if: env.RENDER_DEPLOY_HOOK != ''
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          echo "Triggering Render webhook deploy..."
+          curl -s -X POST "$RENDER_DEPLOY_HOOK"
+          echo "Render deploy triggered successfully!"
+
+      - name: Trigger Vercel Deploy Hook (If Configured)
+        if: env.VERCEL_DEPLOY_HOOK != ''
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          echo "Triggering Vercel webhook deploy..."
+          curl -s -X POST "$VERCEL_DEPLOY_HOOK"
+          echo "Vercel deploy triggered successfully!"
+
+      - name: Deploy Info
+        run: |
+          echo "Deployment pipeline executed on commit ${{ github.sha }}."
+          echo "Tip: Set RENDER_DEPLOY_HOOK or VERCEL_DEPLOY_HOOK in GitHub Repository Secrets to automate 100% of deployments."

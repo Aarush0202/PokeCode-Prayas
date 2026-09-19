@@ -1,0 +1,38 @@
+services:
+  # Python FastAPI Backend Web Service
+  - type: web
+    name: pokecode-backend
+    runtime: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: PORT
+        value: 8000
+      - key: CORS_ORIGINS
+        value: "*"
+
+  # React Static Frontend
+  - type: static
+    name: pokecode-frontend
+    region: oregon
+    plan: free
+    rootDir: frontend
+    buildCommand: pnpm install && pnpm build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: pokecode-backend
+          property: host
+        # Render provides https://pokecode-backend.onrender.com -> append /api in frontend client

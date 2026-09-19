@@ -1,0 +1,21 @@
+{
+  "name": "pokecode-prayas",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Production-ready full stack pipeline for Prayas Hackathon",
+  "scripts": {
+    "dev": "concurrently -n \"backend,frontend\" -c \"cyan,magenta\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && uvicorn app.main:app --reload --port 8000 --host 0.0.0.0",
+    "dev:frontend": "cd frontend && pnpm dev",
+    "build": "cd frontend && pnpm build",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "PYTHONPATH=backend pytest backend/tests",
+    "test:frontend": "cd frontend && pnpm build",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
