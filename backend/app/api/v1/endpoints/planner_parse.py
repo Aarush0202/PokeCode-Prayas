@@ -13,6 +13,7 @@ class PlannerParseRequest(BaseModel):
     text: str = Field(..., max_length=1000, description="Natural language description of proposed event")
 
 
+@router.post("/planner/parse", response_model=PlannerParseResponse, summary="Parse event description into structured fields")
 @router.post("/parse", response_model=PlannerParseResponse, summary="Parse event description into structured fields")
 def parse_event_description(payload: PlannerParseRequest):
     """Parses a free-text event description into structured fields for feasibility assessment.

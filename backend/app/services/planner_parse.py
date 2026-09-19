@@ -107,6 +107,7 @@ def _extract_zone_id(text: str) -> Optional[str]:
         ("sector 17 central plaza", "cd04"),
         ("sector 17 plaza", "cd04"),
         ("parade ground", "cd04"),
+        ("civic plaza", "ch04"),
         ("sector 17 market", "cd01"),
         ("sector 17", "cd01"),  # Default for Sector 17
         ("isbt 43", "cd02"),

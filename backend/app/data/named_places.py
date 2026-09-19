@@ -46,6 +46,39 @@ NAMED_PLACES: List[Zone] = [
         category=VenueCategory.MARKET,
         city="Delhi",
     ),
+    # ch04: Sector 17 Central Plaza (reserved for B assumed events & D fixtures)
+    Zone(
+        id="ch04",
+        name="Sector 17 Central Plaza",
+        capacity=8000,
+        area_sqm=10000.0,
+        lat=30.7398,  # VERIFY: OSM node 91827301 (Sector 17 Plaza core)
+        lon=76.7830,  # VERIFY: OSM node 91827301
+        category=VenueCategory.PUBLIC_SQUARE,
+        city="Chandigarh",
+    ),
+    # ch05: Rock Garden Amphitheatre
+    Zone(
+        id="ch05",
+        name="Rock Garden Amphitheatre",
+        capacity=2500,
+        area_sqm=3200.0,
+        lat=30.7525,  # VERIFY: OSM node 491827302 (Rock Garden Amphitheatre)
+        lon=76.8066,  # VERIFY: OSM node 491827302
+        category=VenueCategory.CAMPUS_GROUND,
+        city="Chandigarh",
+    ),
+    # ch06: Sector 22 Shastri Market
+    Zone(
+        id="ch06",
+        name="Sector 22 Shastri Market",
+        capacity=3500,
+        area_sqm=4000.0,
+        lat=30.7333,  # VERIFY: OSM node 391827401 (Shastri Market Sector 22)
+        lon=76.7725,  # VERIFY: OSM node 391827401
+        category=VenueCategory.FOOD_STREET,
+        city="Chandigarh",
+    ),
     # dl04: Inter-state bus transit terminal concourse
     Zone(
         id="dl04",
