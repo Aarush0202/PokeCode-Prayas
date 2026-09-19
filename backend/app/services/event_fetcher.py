@@ -268,23 +268,42 @@ def generate_seed_events(reference_time: Optional[datetime] = None) -> List[Even
     return events
 
 
+def generate_all_events(reference_time: Optional[datetime] = None) -> List[EventItem]:
+    """Combine seed events and illustrative assumed events without id collisions."""
+    seed_events = generate_seed_events(reference_time)
+    try:
+        from app.data.assumed_events import get_assumed_events
+        assumed = get_assumed_events(reference_time)
+    except Exception as exc:
+        logger.warning("Failed to load assumed events: %s", exc)
+        assumed = []
+
+    seen_ids = set()
+    combined: List[EventItem] = []
+    for ev in seed_events + assumed:
+        if ev.id not in seen_ids:
+            seen_ids.add(ev.id)
+            combined.append(ev)
+    return combined
+
+
 def ensure_events_loaded() -> List[EventItem]:
     """Ensure in-memory store has events populated (lazy initialisation)."""
     current = store.get_events()
     if not current:
-        seed = generate_seed_events()
-        store.set_events(seed)
-        return seed
+        events = generate_all_events()
+        store.set_events(events)
+        return events
     return current
 
 
 def fetch_and_store_events() -> Dict[str, Any]:
     """Pipeline to refresh events and test weather, returning status report."""
     errors: List[str] = []
-    sources_used = ["seed"]
+    sources_used = ["seed", "assumed"]
 
-    # 1. Regenerate seed events with current relative timestamps
-    fresh_events = generate_seed_events()
+    # 1. Regenerate all events (seed + assumed) with current relative timestamps
+    fresh_events = generate_all_events()
     store.set_events(fresh_events)
 
     # 2. Touch weather for each zone to warm cache and verify network
@@ -305,3 +324,4 @@ def fetch_and_store_events() -> Dict[str, Any]:
         "sources_used": sources_used,
         "errors": errors,
     }
+
