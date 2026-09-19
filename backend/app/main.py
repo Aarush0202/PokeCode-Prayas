@@ -16,7 +16,7 @@ logger = logging.getLogger("pokecode")
 def seed_initial_telemetry():
     """Seed initial vision and beacon signals so monitored zones (z1-z4) have active live telemetry on startup."""
     try:
-        from app.schemas.shared import BeaconSignal, SignalStatus, VisionSignal
+        from app.schemas.shared import BeaconSignal, Flow, VisionSignal, ZONE_BY_ID
         from app.services import store
 
         now = store.utcnow()
@@ -28,22 +28,24 @@ def seed_initial_telemetry():
         }
 
         for zone_id, counts in initial_signals.items():
+            area = ZONE_BY_ID[zone_id].area_sqm if zone_id in ZONE_BY_ID else 400.0
+            density = round(counts["cam"] / area, 3)
             store.add_vision(
                 VisionSignal(
                     zone_id=zone_id,
-                    count=counts["cam"],
                     timestamp=now,
-                    occluded=False,
-                    status=SignalStatus.OK,
+                    person_count=counts["cam"],
+                    density_per_sqm=density,
+                    flow=Flow(dx=0.08, dy=0.08, magnitude=0.11),
+                    confidence=0.92,
                 )
             )
             store.add_beacon(
                 BeaconSignal(
                     zone_id=zone_id,
-                    unique_devices=counts["ble"],
                     timestamp=now,
+                    unique_devices=counts["ble"],
                     scanner_id=f"scanner-{zone_id}-boot",
-                    status=SignalStatus.OK,
                 )
             )
         logger.info("Successfully seeded initial live telemetry signals for zones z1-z4")
