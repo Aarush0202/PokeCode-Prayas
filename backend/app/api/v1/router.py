@@ -1,19 +1,30 @@
+"""CrowdGuard API v1 router. Registers every endpoint module defensively."""
+from __future__ import annotations
+
+import importlib
+import logging
+
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, demo
+
+logger = logging.getLogger(__name__)
 
 api_router = APIRouter()
-api_router.include_router(health.router, prefix="", tags=["System"])
-api_router.include_router(demo.router, prefix="", tags=["Demo"])
 
-# CrowdGuard Person B routers
-try:
-    from app.api.v1.endpoints import events
-    api_router.include_router(events.router, prefix="/events", tags=["Events"])
-except Exception:
-    pass
+# (module name, url prefix, swagger tag)
+_MODULES = [
+    ("health", "", "Health"),
+    ("demo", "", "Demo"),
+    ("zones", "", "Zones"),
+    ("vision", "/vision", "Vision"),
+    ("beacons", "/beacons", "Beacons"),
+    ("events", "/events", "Events"),
+    ("forecast", "/forecast", "Forecast"),
+    ("risk", "/risk", "Risk"),
+]
 
-try:
-    from app.api.v1.endpoints import forecast
-    api_router.include_router(forecast.router, prefix="/forecast", tags=["Forecast"])
-except Exception:
-    pass
+for _name, _prefix, _tag in _MODULES:
+    try:
+        _module = importlib.import_module(f"app.api.v1.endpoints.{_name}")
+        api_router.include_router(_module.router, prefix=_prefix, tags=[_tag])
+    except Exception as exc:  # noqa: BLE001 - a missing teammate module must not break boot
+        logger.warning("CrowdGuard: skipping router '%s' (%s)", _name, exc)

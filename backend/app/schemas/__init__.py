@@ -1,1 +1,1 @@
-# schemas package
+# CrowdGuard shared schemas package
