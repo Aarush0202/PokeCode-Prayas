@@ -2,14 +2,59 @@
   --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 
-  /* Base Control Room Palette */
+  /* Refined Light Tones Palette (Primary) */
+  --bg-dark: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #f1f5f9;
+  --bg-card: #ffffff;
+  --bg-card-highlight: #f8fafc;
+
+  /* Strictly Functional Risk Tier Hues - High Contrast on Light Surfaces */
+  --tier-normal: #059669;
+  --tier-normal-bg: #ecfdf5;
+  --tier-normal-border: #a7f3d0;
+
+  --tier-elevated: #d97706;
+  --tier-elevated-bg: #fffbeb;
+  --tier-elevated-border: #fde68a;
+
+  --tier-high: #ea580c;
+  --tier-high-bg: #fff7ed;
+  --tier-high-border: #fed7aa;
+
+  --tier-critical: #dc2626;
+  --tier-critical-bg: #fef2f2;
+  --tier-critical-border: #fecaca;
+
+  /* Borders & Shadows */
+  --border-subtle: #e2e8f0;
+  --border-active: #94a3b8;
+  --shadow-card: 0 2px 10px rgba(15, 23, 42, 0.05), 0 1px 3px rgba(15, 23, 42, 0.08);
+
+  /* Text Hierarchy */
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --text-inverse: #ffffff;
+
+  /* Layout & Sizing */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-tier: 350ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-theme="dark"] {
   --bg-dark: #07090e;
   --bg-surface: #0c1018;
   --bg-surface-elevated: #131926;
   --bg-card: rgba(16, 22, 34, 0.85);
   --bg-card-highlight: rgba(22, 30, 48, 0.95);
 
-  /* Strictly Functional Risk Tier Hues - Do NOT use decoratively */
   --tier-normal: #10b981;
   --tier-normal-bg: rgba(16, 185, 129, 0.12);
   --tier-normal-border: rgba(16, 185, 129, 0.35);
@@ -26,25 +71,14 @@
   --tier-critical-bg: rgba(239, 68, 68, 0.22);
   --tier-critical-border: rgba(239, 68, 68, 0.7);
 
-  /* Neutral Borders & Dividers */
   --border-subtle: rgba(255, 255, 255, 0.08);
   --border-active: rgba(255, 255, 255, 0.2);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.3);
 
-  /* Text Hierarchy */
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
   --text-inverse: #020617;
-
-  /* Layout & Sizing */
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 16px;
-  --radius-full: 9999px;
-
-  /* Transitions */
-  --transition-fast: 150ms ease;
-  --transition-tier: 350ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 * {
@@ -62,15 +96,23 @@ html, body {
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
   overflow-x: hidden;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
-/* Subtle architectural grid pattern for command room */
+/* Subtle technical grid pattern for command room */
 body {
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(15, 23, 42, 0.03) 0%, transparent 70%),
+    linear-gradient(to right, rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+  background-size: 100% 100%, 48px 48px, 48px 48px;
+}
+
+[data-theme="dark"] body {
   background-image: 
     radial-gradient(circle at 50% 0%, rgba(20, 28, 45, 0.5) 0%, transparent 70%),
     linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-  background-size: 100% 100%, 48px 48px, 48px 48px;
 }
 
 /* Custom Scrollbar */
@@ -79,7 +121,7 @@ body {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-surface);
+  background: var(--bg-surface-elevated);
 }
 ::-webkit-scrollbar-thumb {
   background: var(--border-subtle);
@@ -154,13 +196,13 @@ code, pre {
 
 .indicator-live {
   background-color: var(--tier-normal);
-  box-shadow: 0 0 8px var(--tier-normal);
+  box-shadow: 0 0 6px var(--tier-normal);
   animation: pulse-ring 2s infinite ease-in-out;
 }
 
 .indicator-degraded {
   background-color: var(--tier-elevated);
-  box-shadow: 0 0 8px var(--tier-elevated);
+  box-shadow: 0 0 6px var(--tier-elevated);
 }
 
 /* Focus Visibility & Accessibility */

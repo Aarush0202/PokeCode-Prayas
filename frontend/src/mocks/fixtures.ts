@@ -399,7 +399,12 @@ export function mockAnalyzeFrame(zoneId: string, _file: File): VisionAnalyzeResp
 export function mockSimulateVision(zoneId: string, personCount: number): void {
   const target = liveZonesState.find((z) => z.zone_id === zoneId);
   if (target) {
-    target.fused_estimate = Math.max(personCount, target.beacon?.unique_devices ?? 0);
+    // If user manually set a lower headcount, also adjust beacon if it was holding fused estimate high
+    if (personCount < target.fused_estimate && target.beacon) {
+      target.beacon.unique_devices = Math.min(target.beacon.unique_devices, Math.round(personCount * 1.05));
+    }
+    target.fused_estimate = personCount;
+
     const ratio = target.fused_estimate / target.capacity;
     target.risk_score = Number(Math.min(0.99, ratio * 0.95).toFixed(2));
     if (ratio >= 0.92) target.risk_tier = 'CRITICAL';
@@ -409,7 +414,17 @@ export function mockSimulateVision(zoneId: string, personCount: number): void {
 
     if (target.vision) {
       target.vision.person_count = personCount;
+      target.vision.density_per_sqm = Number((personCount / (target.capacity * 1.2)).toFixed(2));
       target.vision.timestamp = new Date().toISOString();
+    }
+
+    if (target.risk_tier === 'NORMAL') {
+      target.reasons = [
+        'pedestrian dispersal flow steady',
+        'safe egress corridor clear',
+      ];
+      // Clean up alerts for this zone if normal
+      liveAlertsState = liveAlertsState.filter((a) => a.zone_id !== zoneId);
     }
   }
 }
@@ -417,9 +432,12 @@ export function mockSimulateVision(zoneId: string, personCount: number): void {
 export function mockIngestBeacon(zoneId: string, devices: number): void {
   const target = liveZonesState.find((z) => z.zone_id === zoneId);
   if (target) {
-    const prevVision = target.vision?.person_count ?? 0;
-    // Fused logic: trusts the higher estimate
-    target.fused_estimate = Math.max(devices, prevVision);
+    // If decreasing beacon count, scale down vision count if it was holding it up
+    if (devices < target.fused_estimate && target.vision) {
+      target.vision.person_count = Math.min(target.vision.person_count, devices);
+    }
+    target.fused_estimate = devices;
+
     const ratio = target.fused_estimate / target.capacity;
     target.risk_score = Number(Math.min(0.99, ratio * 0.96).toFixed(2));
     if (ratio >= 0.92) target.risk_tier = 'CRITICAL';
@@ -432,10 +450,48 @@ export function mockIngestBeacon(zoneId: string, devices: number): void {
       target.beacon.timestamp = new Date().toISOString();
     }
 
-    if (devices > prevVision * 1.15) {
+    if (target.risk_tier === 'NORMAL') {
+      target.reasons = [
+        'RF telemetry within nominal threshold',
+        'no density pinch point detected',
+      ];
+      liveAlertsState = liveAlertsState.filter((a) => a.zone_id !== zoneId);
+    } else if (target.vision && devices > target.vision.person_count * 1.15) {
       if (!target.reasons.some((r) => r.includes('Bluetooth counts disagree'))) {
         target.reasons.unshift('camera and Bluetooth counts disagree, using the higher estimate');
       }
     }
   }
 }
+
+export function mockDeescalateZone(zoneId: string, targetCount?: number): void {
+  const target = liveZonesState.find((z) => z.zone_id === zoneId);
+  if (target) {
+    const normalCount = targetCount ?? Math.round(target.capacity * 0.28);
+    target.fused_estimate = normalCount;
+    target.risk_tier = 'NORMAL';
+    target.risk_score = 0.24;
+    if (target.vision) {
+      target.vision.person_count = normalCount;
+      target.vision.density_per_sqm = Number((normalCount / target.capacity).toFixed(2));
+      target.vision.timestamp = new Date().toISOString();
+    }
+    if (target.beacon) {
+      target.beacon.unique_devices = normalCount;
+      target.beacon.timestamp = new Date().toISOString();
+    }
+    target.reasons = [
+      'traffic normalized after controlled dispersal',
+      'unimpeded egress throughout sector',
+    ];
+    liveAlertsState = liveAlertsState.filter((a) => a.zone_id !== zoneId);
+  }
+}
+
+export function mockResetAllZones(): void {
+  liveZonesState.forEach((z) => {
+    mockDeescalateZone(z.zone_id);
+  });
+  liveAlertsState = [];
+}
+

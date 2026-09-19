@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { VisionAnalyzeResponse } from '../types/crowdguard';
-import { analyzeFrame, simulateVision, ingestBeacon } from '../services/api';
-import { Upload, Radio, Camera, Zap, CheckCircle2 } from 'lucide-react';
+import { analyzeFrame, simulateVision, ingestBeacon, deescalateZone, resetAllZones } from '../services/api';
+import { Upload, Radio, Camera, Zap, CheckCircle2, RotateCcw, TrendingDown } from 'lucide-react';
 
 interface ControlPanelProps {
   zonesList: Array<{ id: string; name: string; capacity: number }>;
@@ -13,8 +13,8 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   onTelemetryUpdated,
 }) => {
   const [selectedZone, setSelectedZone] = useState<string>(zonesList[0]?.id || 'z1');
-  const [visionCount, setVisionCount] = useState<number>(380);
-  const [beaconCount, setBeaconCount] = useState<number>(750);
+  const [visionCount, setVisionCount] = useState<number>(140);
+  const [beaconCount, setBeaconCount] = useState<number>(140);
   const [uploading, setUploading] = useState<boolean>(false);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [analysisResult, setAnalysisResult] = useState<VisionAnalyzeResponse | null>(null);
@@ -54,10 +54,34 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
   const handleInjectBeacon = async (countToPush: number = beaconCount) => {
     try {
       await ingestBeacon(selectedZone, countToPush);
-      showFeedback(`BLE device spike injected: ${countToPush} phones registered in ${zonesList.find(z => z.id === selectedZone)?.name}`);
+      showFeedback(`BLE device telemetry set to ${countToPush} for ${zonesList.find(z => z.id === selectedZone)?.name}`);
       onTelemetryUpdated();
     } catch (err) {
       console.error('Beacon ingestion failed:', err);
+    }
+  };
+
+  const handleDeescalate = async () => {
+    try {
+      const targetZoneObj = zonesList.find(z => z.id === selectedZone) || zonesList[0];
+      const safeCount = Math.round(targetZoneObj.capacity * 0.28);
+      await deescalateZone(selectedZone, safeCount);
+      setVisionCount(safeCount);
+      setBeaconCount(safeCount);
+      showFeedback(`De-escalated ${targetZoneObj.name} to NORMAL (${safeCount} occupants)`);
+      onTelemetryUpdated();
+    } catch (err) {
+      console.error('De-escalation failed:', err);
+    }
+  };
+
+  const handleResetAll = async () => {
+    try {
+      await resetAllZones();
+      showFeedback(`Reset all zones to NORMAL nominal baselines`);
+      onTelemetryUpdated();
+    } catch (err) {
+      console.error('Reset all failed:', err);
     }
   };
 
@@ -70,6 +94,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         borderRadius: 'var(--radius-md)',
         border: '1px solid var(--border-subtle)',
         padding: '20px 24px',
+        boxShadow: 'var(--shadow-card)',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
@@ -81,15 +106,15 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
             </h3>
           </div>
           <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
-            Presenter controls to test dynamic tier escalation and trigger multi-sensor divergence live.
+            Presenter controls to test escalation, de-escalation, and sensor discrepancy in real time.
           </p>
         </div>
 
         {actionSuccess && (
           <div
             style={{
-              backgroundColor: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid var(--tier-normal)',
+              backgroundColor: 'var(--tier-normal-bg)',
+              border: '1px solid var(--tier-normal-border)',
               borderRadius: 'var(--radius-sm)',
               padding: '6px 12px',
               fontSize: '0.82rem',
@@ -105,31 +130,81 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         )}
       </div>
 
-      {/* Target Zone Selector */}
-      <div style={{ marginBottom: '18px' }}>
-        <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: 600 }}>
-          TARGET SECTOR FOR INJECTION:
-        </label>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {zonesList.map((z) => (
-            <button
-              key={z.id}
-              onClick={() => setSelectedZone(z.id)}
-              style={{
-                backgroundColor: selectedZone === z.id ? 'var(--bg-surface-elevated)' : 'transparent',
-                border: `1.5px solid ${selectedZone === z.id ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
-                color: selectedZone === z.id ? 'var(--text-primary)' : 'var(--text-muted)',
-                padding: '8px 16px',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                fontSize: '0.88rem',
-                fontWeight: selectedZone === z.id ? 700 : 500,
-                transition: 'all var(--transition-fast)',
-              }}
-            >
-              {z.name} (Cap: {z.capacity})
-            </button>
-          ))}
+      {/* Target Zone Selector & Reset Actions */}
+      <div style={{ marginBottom: '18px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '12px' }}>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '6px', fontWeight: 600 }}>
+            TARGET SECTOR FOR TELEMETRY INJECTION:
+          </label>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {zonesList.map((z) => (
+              <button
+                key={z.id}
+                onClick={() => {
+                  setSelectedZone(z.id);
+                  setVisionCount(Math.round(z.capacity * 0.35));
+                  setBeaconCount(Math.round(z.capacity * 0.35));
+                }}
+                style={{
+                  backgroundColor: selectedZone === z.id ? 'var(--bg-surface-elevated)' : 'transparent',
+                  border: `1.5px solid ${selectedZone === z.id ? 'var(--text-primary)' : 'var(--border-subtle)'}`,
+                  color: selectedZone === z.id ? 'var(--text-primary)' : 'var(--text-muted)',
+                  padding: '7px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  fontWeight: selectedZone === z.id ? 700 : 500,
+                  transition: 'all var(--transition-fast)',
+                }}
+              >
+                {z.name} (Cap: {z.capacity})
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Global De-escalate & Reset controls */}
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={handleDeescalate}
+            title="De-escalate current zone to Normal status"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: 'var(--tier-normal-bg)',
+              border: '1px solid var(--tier-normal-border)',
+              color: 'var(--tier-normal)',
+              padding: '7px 14px',
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              fontSize: '0.82rem',
+              fontWeight: 700,
+            }}
+          >
+            <TrendingDown size={14} />
+            <span>De-escalate Zone</span>
+          </button>
+          <button
+            onClick={handleResetAll}
+            title="Reset all zones to baseline Normal"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              backgroundColor: 'var(--bg-surface-elevated)',
+              border: '1px solid var(--border-subtle)',
+              color: 'var(--text-secondary)',
+              padding: '7px 14px',
+              borderRadius: 'var(--radius-sm)',
+              cursor: 'pointer',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+            }}
+          >
+            <RotateCcw size={14} />
+            <span>Reset All Zones</span>
+          </button>
         </div>
       </div>
 
@@ -144,7 +219,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
         {/* Panel 1: Image / Video Frame Upload */}
         <div
           style={{
-            backgroundColor: 'var(--bg-surface)',
+            backgroundColor: 'var(--bg-surface-elevated)',
             border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-sm)',
             padding: '16px',
@@ -171,7 +246,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 padding: '12px',
                 border: '1px dashed var(--border-active)',
                 borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                backgroundColor: 'var(--bg-surface)',
                 cursor: uploading ? 'not-allowed' : 'pointer',
                 color: 'var(--text-primary)',
                 fontSize: '0.85rem',
@@ -199,10 +274,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           )}
         </div>
 
-        {/* Panel 2: Simulate Camera Vision Count */}
+        {/* Panel 2: Simulate Camera Vision Count (Up or Down) */}
         <div
           style={{
-            backgroundColor: 'var(--bg-surface)',
+            backgroundColor: 'var(--bg-surface-elevated)',
             border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-sm)',
             padding: '16px',
@@ -214,10 +289,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <Camera size={16} color="var(--text-primary)" />
-              <strong style={{ fontSize: '0.9rem' }}>Simulate Camera Headcount</strong>
+              <strong style={{ fontSize: '0.9rem' }}>Set Optical Camera Count</strong>
             </div>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-              Force a visual headcount for {currentZoneObj.name}.
+              Manually set or decrease visual headcount for {currentZoneObj.name}.
             </p>
 
             <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
@@ -229,12 +304,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 max={2000}
                 className="num-tabular"
                 style={{
-                  backgroundColor: 'var(--bg-surface-elevated)',
+                  backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 'var(--radius-sm)',
                   color: 'var(--text-primary)',
                   padding: '8px 10px',
-                  width: '100px',
+                  width: '90px',
                   fontSize: '0.95rem',
                   fontWeight: 700,
                 }}
@@ -243,17 +318,17 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 onClick={() => handleSimulateVision(visionCount)}
                 style={{
                   flex: 1,
-                  backgroundColor: 'var(--bg-surface-elevated)',
+                  backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-active)',
                   color: 'var(--text-primary)',
                   borderRadius: 'var(--radius-sm)',
-                  padding: '8px 14px',
+                  padding: '8px 12px',
                   cursor: 'pointer',
                   fontWeight: 600,
                   fontSize: '0.85rem',
                 }}
               >
-                Send Vision Count
+                Apply Count
               </button>
             </div>
           </div>
@@ -261,7 +336,7 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             <button
               onClick={() => {
-                const count = Math.round(currentZoneObj.capacity * 0.35);
+                const count = Math.round(currentZoneObj.capacity * 0.25);
                 setVisionCount(count);
                 handleSimulateVision(count);
               }}
@@ -269,13 +344,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 fontSize: '0.75rem',
                 padding: '4px 8px',
                 borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                backgroundColor: 'var(--tier-normal-bg)',
                 border: '1px solid var(--tier-normal-border)',
                 color: 'var(--tier-normal)',
                 cursor: 'pointer',
+                fontWeight: 600,
               }}
             >
-              Normal (35%)
+              Normal (25%)
             </button>
             <button
               onClick={() => {
@@ -287,10 +363,11 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 fontSize: '0.75rem',
                 padding: '4px 8px',
                 borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                backgroundColor: 'var(--tier-elevated-bg)',
                 border: '1px solid var(--tier-elevated-border)',
                 color: 'var(--tier-elevated)',
                 cursor: 'pointer',
+                fontWeight: 600,
               }}
             >
               Elevated (60%)
@@ -305,21 +382,22 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 fontSize: '0.75rem',
                 padding: '4px 8px',
                 borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'rgba(249, 115, 22, 0.15)',
+                backgroundColor: 'var(--tier-high-bg)',
                 border: '1px solid var(--tier-high-border)',
                 color: 'var(--tier-high)',
                 cursor: 'pointer',
+                fontWeight: 600,
               }}
             >
-              High (85%)
+              Surge (85%)
             </button>
           </div>
         </div>
 
-        {/* Panel 3: Ingest Bluetooth BLE Device Spike */}
+        {/* Panel 3: Ingest Bluetooth BLE Device Count (Up or Down) */}
         <div
           style={{
-            backgroundColor: 'var(--bg-surface)',
+            backgroundColor: 'var(--bg-surface-elevated)',
             border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-sm)',
             padding: '16px',
@@ -331,10 +409,10 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
               <Radio size={16} color="var(--tier-elevated)" />
-              <strong style={{ fontSize: '0.9rem' }}>Inject BLE Blind-Spot Surge</strong>
+              <strong style={{ fontSize: '0.9rem' }}>Set Bluetooth BLE Count</strong>
             </div>
             <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
-              Simulate high phone count in dark/blind zone to prove fusion fail-safe.
+              Test blind-spot surges or de-escalate RF phone presence.
             </p>
 
             <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
@@ -346,12 +424,12 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 max={2000}
                 className="num-tabular"
                 style={{
-                  backgroundColor: 'var(--bg-surface-elevated)',
+                  backgroundColor: 'var(--bg-surface)',
                   border: '1px solid var(--border-subtle)',
                   borderRadius: 'var(--radius-sm)',
                   color: 'var(--text-primary)',
                   padding: '8px 10px',
-                  width: '100px',
+                  width: '90px',
                   fontSize: '0.95rem',
                   fontWeight: 700,
                 }}
@@ -360,22 +438,41 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 onClick={() => handleInjectBeacon(beaconCount)}
                 style={{
                   flex: 1,
-                  backgroundColor: 'var(--bg-surface-elevated)',
-                  border: '1px solid var(--tier-elevated)',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--tier-elevated-border)',
                   color: 'var(--tier-elevated)',
                   borderRadius: 'var(--radius-sm)',
-                  padding: '8px 14px',
+                  padding: '8px 12px',
                   cursor: 'pointer',
                   fontWeight: 700,
                   fontSize: '0.85rem',
                 }}
               >
-                Spike BLE Devices
+                Apply BLE
               </button>
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => {
+                const count = Math.round(currentZoneObj.capacity * 0.25);
+                setBeaconCount(count);
+                handleInjectBeacon(count);
+              }}
+              style={{
+                fontSize: '0.75rem',
+                padding: '4px 8px',
+                borderRadius: 'var(--radius-sm)',
+                backgroundColor: 'var(--tier-normal-bg)',
+                border: '1px solid var(--tier-normal-border)',
+                color: 'var(--tier-normal)',
+                cursor: 'pointer',
+                fontWeight: 600,
+              }}
+            >
+              Normal (25%)
+            </button>
             <button
               onClick={() => {
                 const count = Math.round(currentZoneObj.capacity * 0.78);
@@ -386,14 +483,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 fontSize: '0.75rem',
                 padding: '4px 8px',
                 borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'rgba(249, 115, 22, 0.15)',
-                border: '1px solid var(--tier-high)',
+                backgroundColor: 'var(--tier-high-bg)',
+                border: '1px solid var(--tier-high-border)',
                 color: 'var(--tier-high)',
                 cursor: 'pointer',
                 fontWeight: 600,
               }}
             >
-              Surge (+78% Cap)
+              Surge (+78%)
             </button>
             <button
               onClick={() => {
@@ -405,14 +502,14 @@ export const ControlPanel: React.FC<ControlPanelProps> = ({
                 fontSize: '0.75rem',
                 padding: '4px 8px',
                 borderRadius: 'var(--radius-sm)',
-                backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                border: '1px solid var(--tier-critical)',
+                backgroundColor: 'var(--tier-critical-bg)',
+                border: '1px solid var(--tier-critical-border)',
                 color: 'var(--tier-critical)',
                 cursor: 'pointer',
                 fontWeight: 700,
               }}
             >
-              Critical Spike (95%)
+              Critical (95%)
             </button>
           </div>
         </div>

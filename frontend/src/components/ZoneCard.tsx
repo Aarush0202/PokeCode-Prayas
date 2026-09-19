@@ -120,7 +120,7 @@ export const ZoneCard: React.FC<ZoneCardProps> = memo(({
         <div
           style={{
             height: '6px',
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            backgroundColor: 'var(--border-subtle)',
             borderRadius: 'var(--radius-full)',
             overflow: 'hidden',
             marginBottom: '14px',
@@ -157,7 +157,8 @@ export const ZoneCard: React.FC<ZoneCardProps> = memo(({
             style={{
               fontSize: '0.8rem',
               color: 'var(--text-muted)',
-              backgroundColor: 'rgba(0, 0, 0, 0.25)',
+              backgroundColor: 'var(--bg-surface-elevated)',
+              border: '1px solid var(--border-subtle)',
               padding: '8px 10px',
               borderRadius: 'var(--radius-sm)',
               lineHeight: 1.4,

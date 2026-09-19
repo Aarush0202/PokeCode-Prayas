@@ -95,11 +95,11 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
       return (
         <div
           style={{
-            backgroundColor: 'var(--bg-surface-elevated)',
-            border: '1px solid var(--border-active)',
+            backgroundColor: 'var(--bg-card)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: 'var(--radius-sm)',
             padding: '12px 16px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+            boxShadow: 'var(--shadow-card)',
             maxWidth: '320px',
           }}
         >
@@ -192,8 +192,8 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
       {peakPoint && peakPoint.predicted_count > highThresh && (
         <div
           style={{
-            backgroundColor: 'rgba(249, 115, 22, 0.12)',
-            border: '1px solid var(--tier-high)',
+            backgroundColor: 'var(--tier-high-bg)',
+            border: '1px solid var(--tier-high-border)',
             borderRadius: 'var(--radius-sm)',
             padding: '10px 16px',
             marginBottom: '16px',
@@ -236,7 +236,7 @@ export const ForecastChart: React.FC<ForecastChartProps> = ({
                 </linearGradient>
               </defs>
 
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" vertical={false} />
 
               <XAxis
                 dataKey="timeLabel"
