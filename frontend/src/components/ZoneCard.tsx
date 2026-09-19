@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import type { ZoneRisk } from '../types/crowdguard';
 import { Camera, Radio, AlertCircle } from 'lucide-react';
+import { RiskScoreExplainer } from './RiskScoreExplainer';
 
 interface ZoneCardProps {
   zone: ZoneRisk;
@@ -111,8 +112,9 @@ export const ZoneCard: React.FC<ZoneCardProps> = memo(({
           <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
             / <span className="num-tabular">{zone.capacity}</span> ({occupancyPercent}%)
           </span>
-          <span style={{ marginLeft: 'auto', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-            Risk Score: <strong style={{ color: tierColor }} className="num-tabular">{(zone.risk_score * 100).toFixed(0)}</strong>/100
+          <span style={{ marginLeft: 'auto', fontSize: '0.82rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span>Risk Score: <strong style={{ color: tierColor }} className="num-tabular">{(zone.risk_score * 100).toFixed(0)}</strong>/100</span>
+            <RiskScoreExplainer zone={zone} />
           </span>
         </div>
 
@@ -120,7 +122,7 @@ export const ZoneCard: React.FC<ZoneCardProps> = memo(({
         <div
           style={{
             height: '6px',
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            backgroundColor: 'var(--border-subtle)',
             borderRadius: 'var(--radius-full)',
             overflow: 'hidden',
             marginBottom: '14px',
@@ -157,7 +159,8 @@ export const ZoneCard: React.FC<ZoneCardProps> = memo(({
             style={{
               fontSize: '0.8rem',
               color: 'var(--text-muted)',
-              backgroundColor: 'rgba(0, 0, 0, 0.25)',
+              backgroundColor: 'var(--bg-surface-elevated)',
+              border: '1px solid var(--border-subtle)',
               padding: '8px 10px',
               borderRadius: 'var(--radius-sm)',
               lineHeight: 1.4,

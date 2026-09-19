@@ -37,7 +37,7 @@ export const SignalBreakdown: React.FC<SignalBreakdownProps> = ({ zone }) => {
         borderRadius: 'var(--radius-md)',
         border: '1px solid var(--border-subtle)',
         padding: '20px 24px',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+        boxShadow: 'var(--shadow-card)',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
@@ -63,8 +63,8 @@ export const SignalBreakdown: React.FC<SignalBreakdownProps> = ({ zone }) => {
         <div
           role="note"
           style={{
-            backgroundColor: 'rgba(245, 158, 11, 0.12)',
-            border: '1px solid var(--tier-elevated)',
+            backgroundColor: 'var(--tier-elevated-bg)',
+            border: '1px solid var(--tier-elevated-border)',
             borderRadius: 'var(--radius-sm)',
             padding: '12px 16px',
             marginBottom: '16px',

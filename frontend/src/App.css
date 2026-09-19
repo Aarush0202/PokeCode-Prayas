@@ -6,12 +6,13 @@
 
 .app-header {
   border-bottom: 1px solid var(--border-subtle);
-  background-color: rgba(12, 16, 24, 0.85);
+  background-color: var(--bg-surface);
   backdrop-filter: blur(16px);
   position: sticky;
   top: 0;
   z-index: 40;
   padding: 12px 24px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
 .header-content {
@@ -31,11 +32,11 @@
 }
 
 .brand-logo {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #1e293b, #0f172a);
-  border: 1.5px solid var(--border-active);
+  background: var(--bg-surface-elevated);
+  border: 1.5px solid var(--border-subtle);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -59,7 +60,8 @@
 .header-meta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .status-pill {
@@ -72,11 +74,12 @@
   font-weight: 600;
   background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
 }
 
 .nav-tabs {
   display: flex;
-  background-color: var(--bg-surface);
+  background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   padding: 3px;
@@ -99,9 +102,9 @@
 }
 
 .tab-btn.active {
-  background-color: var(--bg-surface-elevated);
+  background-color: var(--bg-surface);
   color: var(--text-primary);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08);
 }
 
 .app-main {

@@ -15,6 +15,8 @@ import {
   mockAnalyzeFrame,
   mockSimulateVision,
   mockIngestBeacon,
+  mockDeescalateZone,
+  mockResetAllZones,
 } from '../mocks/fixtures';
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
@@ -211,6 +213,16 @@ export async function ingestBeacon(zoneId: string, devices: number): Promise<{ s
     mockIngestBeacon(zoneId, devices);
     return { success: true };
   }
+}
+
+export async function deescalateZone(zoneId: string, count?: number): Promise<{ success: boolean }> {
+  mockDeescalateZone(zoneId, count);
+  return { success: true };
+}
+
+export async function resetAllZones(): Promise<{ success: boolean }> {
+  mockResetAllZones();
+  return { success: true };
 }
 
 export interface BackendHealth {
