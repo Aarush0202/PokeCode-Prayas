@@ -16,6 +16,12 @@ import httpx
 from app.schemas.shared import ZONE_BY_ID, EventItem
 from app.services import store
 
+try:
+    from app.data.assumed_events import get_assumed_events
+except ImportError:
+    def get_assumed_events() -> List[EventItem]:
+        return []
+
 logger = logging.getLogger("crowdguard.event_fetcher")
 
 # In-memory weather cache: key = f"{zone_id}", value = (cached_at_datetime, hourly_data_dict)
@@ -262,6 +268,7 @@ def generate_seed_events(reference_time: Optional[datetime] = None) -> List[Even
             expected_attendance=item["expected_attendance"],
             source="seed",
             zone_id=item["zone_id"],
+            is_illustrative=False,
         )
         events.append(event)
 
@@ -273,8 +280,10 @@ def ensure_events_loaded() -> List[EventItem]:
     current = store.get_events()
     if not current:
         seed = generate_seed_events()
-        store.set_events(seed)
-        return seed
+        assumed = get_assumed_events()
+        combined = seed + assumed
+        store.set_events(combined)
+        return combined
     return current
 
 
@@ -285,7 +294,11 @@ def fetch_and_store_events() -> Dict[str, Any]:
 
     # 1. Regenerate seed events with current relative timestamps
     fresh_events = generate_seed_events()
-    store.set_events(fresh_events)
+    assumed_events = get_assumed_events()
+    if assumed_events:
+        sources_used.append("assumed")
+    all_events = fresh_events + assumed_events
+    store.set_events(all_events)
 
     # 2. Touch weather for each zone to warm cache and verify network
     weather_ok = False
@@ -301,7 +314,7 @@ def fetch_and_store_events() -> Dict[str, Any]:
 
     return {
         "refreshed": True,
-        "count": len(fresh_events),
+        "count": len(all_events),
         "sources_used": sources_used,
         "errors": errors,
     }

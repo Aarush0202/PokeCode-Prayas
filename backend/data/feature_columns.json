@@ -1,0 +1,16 @@
+[
+  "cat_market",
+  "cat_transit_hub",
+  "cat_religious_site",
+  "cat_campus_ground",
+  "cat_food_street",
+  "cat_public_square",
+  "hour",
+  "dow",
+  "is_weekend",
+  "rain",
+  "temp",
+  "event_attendance_ratio",
+  "hours_to_event",
+  "event_active"
+]

@@ -77,3 +77,69 @@ def test_events_refresh_resilient_to_network_outage(monkeypatch):
     assert data["count"] >= 10
     assert "seed" in data["sources_used"]
     assert len(data["errors"]) > 0  # Captured failure gracefully without crashing
+
+
+def test_assumed_events_honesty_contract():
+    """Every assumed event has is_illustrative=True, source='assumed', and title starting with [Illustrative]."""
+    from app.data.assumed_events import get_assumed_events
+    assumed = get_assumed_events()
+    assert len(assumed) >= 6, "Expected at least 6 canonical assumed events"
+
+    for ev in assumed:
+        assert getattr(ev, "is_illustrative", False) is True, f"Event {ev.id} is not marked is_illustrative=True"
+        assert ev.source == "assumed", f"Event {ev.id} source is {ev.source}, expected 'assumed'"
+        assert ev.title.startswith("[Illustrative]"), f"Event {ev.id} title '{ev.title}' missing '[Illustrative]' prefix"
+        assert ev.id.startswith("assume-"), f"Event {ev.id} id missing 'assume-' prefix"
+
+
+def test_no_id_collision_between_seed_and_assumed():
+    """Seed event IDs and assumed event IDs are completely disjoint."""
+    from app.data.assumed_events import get_assumed_events
+    seed_events = event_fetcher.generate_seed_events()
+    assumed_events = get_assumed_events()
+
+    seed_ids = {e.id for e in seed_events}
+    assumed_ids = {e.id for e in assumed_events}
+
+    collision = seed_ids & assumed_ids
+    assert len(collision) == 0, f"Found colliding IDs between seed and assumed sets: {collision}"
+
+
+def test_assumed_events_ist_anchoring():
+    """Assumed events are anchored to intended IST times."""
+    from zoneinfo import ZoneInfo
+    from app.data.assumed_events import get_assumed_events
+    ist = ZoneInfo("Asia/Kolkata")
+
+    assumed = get_assumed_events()
+    for ev in assumed:
+        start_ist = ev.start_time.astimezone(ist)
+        # Check that start minute is either 0 or 30
+        assert start_ist.minute in (0, 30), f"Event {ev.id} starts at unexpected minute: {start_ist.minute}"
+        # All events should have upcoming start times
+        assert ev.end_time > ev.start_time
+
+
+def test_events_refresh_includes_assumed_source():
+    """POST /api/v1/events/refresh returns sources_used containing both seed and assumed."""
+    resp = client.post("/api/v1/events/refresh")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "seed" in data["sources_used"]
+    assert "assumed" in data["sources_used"]
+    assert data["count"] >= 15
+
+
+def test_events_nearby_carries_source_and_is_illustrative():
+    """GET /api/v1/events/nearby carries source and is_illustrative fields."""
+    resp = client.get("/api/v1/events/nearby?hours=168")
+    assert resp.status_code == 200
+    events = resp.json()["events"]
+
+    sources = {e.get("source") for e in events}
+    assert "seed" in sources
+    assert "assumed" in sources
+
+    has_illustrative = any(e.get("is_illustrative") is True for e in events)
+    assert has_illustrative is True
+
