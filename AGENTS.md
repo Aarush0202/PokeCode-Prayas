@@ -26,6 +26,7 @@
 ## 2. Core UI Layout & Tabs (Do NOT Break)
 
 The root UI in `frontend/src/App.tsx` has **three primary tabs**:
+
 1. **`Live Operations`** (`activeTab === 'live'`):
    - Real-time 4-zone telemetry (`z1`–`z4`), venue spatial floorplan, camera feed HUD modal, multimodal fusion breakdown, incident audit log, and bidirectional control panel.
 2. **`Predictive Forecast (48h)`** (`activeTab === 'forecast'`):
@@ -56,7 +57,7 @@ The root UI in `frontend/src/App.tsx` has **three primary tabs**:
 
 ---
 
-## 4. Git & Contribution Workflow for AI Agents
+## 4. Critical Multi-Agent Workflow Guardrails
 
 1. **Always Sync First:**
    ```bash
@@ -67,7 +68,9 @@ The root UI in `frontend/src/App.tsx` has **three primary tabs**:
 2. **Never Force-Push or Rewrite History:**
    - Do NOT use `git push --force` or `git reset --hard` on shared branches.
    - Main branch is protected; changes must be submitted via Pull Requests.
-3. **Mandatory Pre-Commit Verification:**
+3. **Retrain & Re-evaluate on Data Updates:**
+   - If training dataset CSVs are modified, run `python tools/generate_training_data.py` to regenerate model artifacts (`forecast_model.joblib`, `model_metrics.json`, `feature_columns.json`).
+4. **Mandatory Pre-Commit Verification:**
    - Run backend tests:
      ```bash
      pytest backend/tests/
@@ -77,7 +80,7 @@ The root UI in `frontend/src/App.tsx` has **three primary tabs**:
      cd frontend && pnpm build
      ```
    Both checks must pass cleanly with **zero failures** before pushing.
-4. **Push & Create PR:**
+5. **Push & Create PR:**
    ```bash
    git push -u origin feat/<your-feature-name>
    ```

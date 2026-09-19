@@ -13,11 +13,51 @@ logging.basicConfig(
 logger = logging.getLogger("pokecode")
 
 
+def seed_initial_telemetry():
+    """Seed initial vision and beacon signals so monitored zones (z1-z4) have active live telemetry on startup."""
+    try:
+        from app.schemas.shared import BeaconSignal, SignalStatus, VisionSignal
+        from app.services import store
+
+        now = store.utcnow()
+        initial_signals = {
+            "z1": {"cam": 135, "ble": 72},
+            "z2": {"cam": 340, "ble": 180},
+            "z3": {"cam": 480, "ble": 255},
+            "z4": {"cam": 95, "ble": 52},
+        }
+
+        for zone_id, counts in initial_signals.items():
+            store.add_vision(
+                VisionSignal(
+                    zone_id=zone_id,
+                    count=counts["cam"],
+                    timestamp=now,
+                    occluded=False,
+                    status=SignalStatus.OK,
+                )
+            )
+            store.add_beacon(
+                BeaconSignal(
+                    zone_id=zone_id,
+                    unique_devices=counts["ble"],
+                    timestamp=now,
+                    scanner_id=f"scanner-{zone_id}-boot",
+                    status=SignalStatus.OK,
+                )
+            )
+        logger.info("Successfully seeded initial live telemetry signals for zones z1-z4")
+    except Exception as exc:
+        logger.warning("Failed to seed initial telemetry: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION} [{settings.ENVIRONMENT}]")
+    seed_initial_telemetry()
     yield
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
+
 
 
 app = FastAPI(
