@@ -135,6 +135,26 @@ export const DelhiMetroDashboard: React.FC<DelhiMetroDashboardProps> = ({ curren
     setTimeout(() => setActionSuccessMsg(''), 4000);
   };
 
+  const chartData = useMemo(() => {
+    if (!predictionData?.points) return [];
+    return predictionData.points.map((p) => {
+      let timeLabel = p.timestamp;
+      try {
+        timeLabel = new Date(p.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } catch {
+        // fallback
+      }
+      return {
+        time: timeLabel,
+        occupancy: p.predicted_occupancy,
+        capacity: p.max_capacity,
+        ratioPct: Math.round(p.predicted_ratio * 100),
+        tier: p.risk_tier,
+        driver: p.primary_driver,
+      };
+    });
+  }, [predictionData]);
+
   if (loading || !data) {
     return (
       <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -166,26 +186,6 @@ export const DelhiMetroDashboard: React.FC<DelhiMetroDashboardProps> = ({ curren
       `• Recommended Mitigation: ${predictionData.recommended_mitigation}`
     );
   };
-
-  const chartData = useMemo(() => {
-    if (!predictionData?.points) return [];
-    return predictionData.points.map((p) => {
-      let timeLabel = p.timestamp;
-      try {
-        timeLabel = new Date(p.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      } catch {
-        // fallback
-      }
-      return {
-        time: timeLabel,
-        occupancy: p.predicted_occupancy,
-        capacity: p.max_capacity,
-        ratioPct: Math.round(p.predicted_ratio * 100),
-        tier: p.risk_tier,
-        driver: p.primary_driver,
-      };
-    });
-  }, [predictionData]);
 
   if (loading || !data) {
     return (
