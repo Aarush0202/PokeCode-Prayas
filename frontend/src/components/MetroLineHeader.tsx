@@ -167,8 +167,9 @@ export const MetroLineHeader: React.FC<MetroLineHeaderProps> = ({
                 <div
                   style={{
                     fontSize: '0.68rem',
-                    color: isCongested ? 'var(--tier-high)' : 'var(--tier-elevated)',
-                    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+                    color: isCongested ? '#c2410c' : '#b45309',
+                    backgroundColor: isCongested ? '#fff7ed' : '#fffbeb',
+                    border: `1px solid ${isCongested ? '#fed7aa' : '#fde68a'}`,
                     padding: '3px 6px',
                     borderRadius: '4px',
                     display: 'flex',

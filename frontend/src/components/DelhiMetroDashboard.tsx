@@ -109,6 +109,48 @@ export const DelhiMetroDashboard: React.FC<DelhiMetroDashboardProps> = ({ curren
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* Friendly Guide Banner */}
+      <div
+        style={{
+          backgroundColor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          borderRadius: 'var(--radius-md)',
+          padding: '14px 18px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '12px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              backgroundColor: '#2563eb',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.1rem',
+              fontWeight: 800,
+            }}
+          >
+            ⓘ
+          </div>
+          <div>
+            <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#1e3a8a' }}>
+              Delhi Metro Operations & Tactical Command
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#1e40af', marginTop: '2px' }}>
+              Select any station hub below to view real-time platform density, CCTV feeds, turnstile flow, and trigger tactical crowd controls.
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Network Header & Line Health Ticker */}
       <MetroLineHeader
         lines={data.lines}
@@ -125,8 +167,8 @@ export const DelhiMetroDashboard: React.FC<DelhiMetroDashboardProps> = ({ curren
             <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: 0, color: 'var(--text-primary)' }}>
               Monitored Metro Hubs ({data.stations.length})
             </h3>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-              Click station to isolate spatial map
+            <span style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 600 }}>
+              👇 Click station to isolate spatial floorplan
             </span>
           </div>
 
@@ -158,13 +200,13 @@ export const DelhiMetroDashboard: React.FC<DelhiMetroDashboardProps> = ({ curren
                   key={st.station_id}
                   onClick={() => setSelectedStationId(st.station_id)}
                   style={{
-                    backgroundColor: 'var(--bg-card)',
+                    backgroundColor: isSelected ? '#ffffff' : '#ffffff',
                     borderRadius: 'var(--radius-md)',
-                    border: isSelected ? '2px solid #eab308' : `1px solid ${tierBorder}`,
+                    border: isSelected ? '2px solid #2563eb' : `1px solid ${tierBorder}`,
                     padding: '14px',
                     cursor: 'pointer',
-                    boxShadow: isSelected ? '0 0 12px rgba(234, 179, 8, 0.3)' : 'var(--shadow-card)',
-                    transition: 'transform 150ms ease',
+                    boxShadow: isSelected ? '0 4px 12px rgba(37, 99, 235, 0.18)' : '0 1px 3px rgba(0,0,0,0.05)',
+                    transition: 'all 150ms ease',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
