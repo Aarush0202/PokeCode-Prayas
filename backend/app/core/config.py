@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     PORT: int = 8000
     HOST: str = "0.0.0.0"
+    DEMO_TELEMETRY: bool = True
 
     # CORS configuration
     CORS_ORIGINS: Union[str, List[str]] = [

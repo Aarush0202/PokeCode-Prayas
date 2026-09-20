@@ -22,7 +22,7 @@
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 12px;
 }
 
 .brand-section {
@@ -84,13 +84,15 @@
   border-radius: var(--radius-sm);
   padding: 3px;
   gap: 2px;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .tab-btn {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  padding: 6px 14px;
+  padding: 6px 10px;
   border-radius: 4px;
   font-size: 0.82rem;
   font-weight: 600;
@@ -99,6 +101,7 @@
   align-items: center;
   gap: 6px;
   transition: all var(--transition-fast);
+  white-space: nowrap;
 }
 
 .tab-btn.active {
