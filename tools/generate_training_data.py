@@ -94,7 +94,9 @@ FEATURE_COLUMNS = [
 ]
 
 # Empirical Delhi Metro Rail Corporation (DMRC) Passenger Benchmarks
-# Provenance: DMRC Annual Ridership Records (2010-2018) & Average Per Day Journeys (2018-2022)
+# Provenance: Rajya Sabha (Indian Parliament) session answers, publicly tabled records:
+#   - docs/sources/RS_Session_257_AU_59_B.csv (DMRC average per day passenger journeys)
+#   - docs/sources/RS_Session_248_AU_493.1.csv (DMRC quarterly ridership 2010-2018)
 DMRC_BENCHMARK = {
     "annual_quarterly_ridership": {
         2010: [81073077, 92678190, 109826101, 128384175],
@@ -109,12 +111,12 @@ DMRC_BENCHMARK = {
     },
     "average_per_day_lakhs": {
         "2018-19": 45.44,
-        "2019-20": 50.65,  # Pre-COVID peak daily passenger journeys (~5.065 million)
+        "2019-20": 50.65,  # Pre-COVID peak daily passenger journeys (~5.065 million; Source: docs/sources/RS_Session_257_AU_59_B.csv)
         "2020-21": 17.10,
         "2021-22": 24.77,
         "Jun-2022": 41.21,
     },
-    # Empirical seasonal weight distribution derived from DMRC quarterly records:
+    # Empirical seasonal weight distribution derived from DMRC quarterly records (Source: docs/sources/RS_Session_248_AU_493.1.csv):
     # Q1 (Jan-Mar): 24.1%, Q2 (Apr-Jun): 24.4%, Q3 (Jul-Sep): 26.1%, Q4 (Oct-Dec): 25.4%
     "quarterly_multipliers": {
         1: 0.964,  # Q1 (Jan-Mar)
@@ -478,6 +480,11 @@ def train_and_evaluate(
         ),
         "data_provenance": {
             "transit_hub_calibration": "Empirically calibrated against Delhi Metro Rail Corporation (DMRC) official ridership records (50.65 Lakh daily journeys peak, 2010-2022 quarterly distributions).",
+            "source_files": [
+                "docs/sources/RS_Session_257_AU_59_B.csv",
+                "docs/sources/RS_Session_248_AU_493.1.csv"
+            ],
+            "source_description": "Rajya Sabha (Indian Parliament) session answers, publicly tabled records.",
             "dmrc_peak_daily_journeys_lakhs": 50.65,
             "quarterly_seasonal_distribution": DMRC_BENCHMARK["quarterly_multipliers"],
             "synthetic_generator": "100 procedurally generated venues across 6 categories in IST",

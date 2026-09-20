@@ -15,6 +15,7 @@ import { LoginPage, DUMMY_ACCOUNTS, type UserProfile } from './components/LoginP
 import { EventPlanner } from './components/EventPlanner';
 import { AboutForecastModal } from './components/AboutForecastModal';
 import { CameraFeedModal } from './components/CameraFeedModal';
+import { DelhiMetroDashboard } from './components/DelhiMetroDashboard';
 import { playTacticalChime, playEmergencyAlarm } from './utils/audioAlerts';
 import { Shield, Activity, TrendingUp, Layers, Radio, AlertOctagon, Sun, Moon, LogOut, Volume2, VolumeX } from 'lucide-react';
 
@@ -36,7 +37,7 @@ export const App: React.FC = () => {
     }
   });
 
-  const [activeTab, setActiveTab] = useState<'live' | 'forecast' | 'planner'>('live');
+  const [activeTab, setActiveTab] = useState<'live' | 'forecast' | 'planner' | 'metro'>('live');
   const [showMetricsModal, setShowMetricsModal] = useState<boolean>(false);
   const [selectedZoneId, setSelectedZoneId] = useState<string>('z3'); // Default to Market Street (high interest)
   const [camModalZone, setCamModalZone] = useState<ZoneRisk | null>(null);
@@ -296,6 +297,29 @@ export const App: React.FC = () => {
                 BETA
               </span>
             </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === 'metro'}
+              className={`tab-btn ${activeTab === 'metro' ? 'active' : ''}`}
+              onClick={() => setActiveTab('metro')}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Activity size={14} color="#eab308" />
+              <span>Delhi Metro Ops</span>
+              <span
+                style={{
+                  fontSize: '0.62rem',
+                  backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                  color: '#eab308',
+                  padding: '1px 5px',
+                  borderRadius: 'var(--radius-full)',
+                  fontWeight: 800,
+                  letterSpacing: '0.04em',
+                }}
+              >
+                DMRC ML
+              </span>
+            </button>
           </div>
 
           {/* Operational Status & Telemetry Pill */}
@@ -517,11 +541,13 @@ export const App: React.FC = () => {
             {/* Scheduled City Events & Transit Peaks */}
             <EventTimeline zoneMap={zoneMap} />
           </>
-        ) : (
+        ) : activeTab === 'planner' ? (
           <EventPlanner
             initialZoneId={selectedZoneId}
             onSelectZone={(id) => setSelectedZoneId(id)}
           />
+        ) : (
+          <DelhiMetroDashboard currentUser={currentUser} />
         )}
       </main>
 

@@ -12,6 +12,14 @@ from typing import List, Dict
 from app.schemas.shared import VenueCategory, Zone
 
 NAMED_PLACES: List[Zone] = [
+    # --- DELHI METRO STATIONS (DMRC NETWORK) ---
+    Zone(id="dm_z1", name="Rajiv Chowk Interchange", capacity=2500, area_sqm=3000.0, lat=28.6328, lon=77.2197, category=VenueCategory.TRANSIT_HUB, city="Delhi"),
+    Zone(id="dm_z2", name="Kashmere Gate Hub", capacity=2800, area_sqm=3200.0, lat=28.6675, lon=77.2285, category=VenueCategory.TRANSIT_HUB, city="Delhi"),
+    Zone(id="dm_z3", name="Hauz Khas Junction", capacity=1800, area_sqm=2200.0, lat=28.5432, lon=77.2065, category=VenueCategory.TRANSIT_HUB, city="Delhi"),
+    Zone(id="dm_z4", name="Millennium City Centre", capacity=1500, area_sqm=1800.0, lat=28.4595, lon=77.0725, category=VenueCategory.TRANSIT_HUB, city="Gurugram"),
+    Zone(id="dm_z5", name="Botanical Garden", capacity=1600, area_sqm=2000.0, lat=28.5644, lon=77.3342, category=VenueCategory.TRANSIT_HUB, city="Noida"),
+    Zone(id="dm_z6", name="Central Secretariat", capacity=1400, area_sqm=1600.0, lat=28.6146, lon=77.2119, category=VenueCategory.TRANSIT_HUB, city="Delhi"),
+
     # --- DELHI VENUES ---
     # ch01: Held-out market in Old Delhi core
     Zone(
@@ -24,15 +32,15 @@ NAMED_PLACES: List[Zone] = [
         category=VenueCategory.MARKET,
         city="Delhi",
     ),
-    # ch02: Major public square / commercial promenade in central Delhi
+    # ch02: Rajiv Chowk Metro interchange hub
     Zone(
         id="ch02",
-        name="Connaught Place Inner Circle",
-        capacity=8000,
-        area_sqm=10000.0,
-        lat=28.6315,  # VERIFY: OSM node 192837460 (Connaught Place inner ring)
-        lon=77.2167,  # VERIFY: OSM node 192837460
-        category=VenueCategory.PUBLIC_SQUARE,
+        name="Rajiv Chowk Metro Interchange",
+        capacity=3500,
+        area_sqm=3000.0,
+        lat=28.6328,
+        lon=77.2195,
+        category=VenueCategory.TRANSIT_HUB,
         city="Delhi",
     ),
     # ch03: High-density South Delhi retail hub

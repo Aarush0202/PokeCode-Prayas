@@ -3,8 +3,11 @@ Pure functions combining Vision, Beacon, and Forecast signals into fused zone ri
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
+
+logger = logging.getLogger("crowdguard.fusion")
 
 from app.schemas.shared import (
     ZONE_BY_ID,
@@ -265,7 +268,8 @@ def _forecast_pressure(zone_id: str) -> Tuple[float, List[str]]:
     try:
         from app.services.forecaster import zone_pressure
         return zone_pressure(zone_id)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Failed to compute forecast pressure for zone '{zone_id}': {e}")
         return 0.0, []
 
 
@@ -342,6 +346,7 @@ def evaluate_all_zones() -> List[ZoneRisk]:
         try:
             results.append(evaluate_zone_risk(zone.id))
         except Exception:
+            logger.exception(f"Error evaluating risk for zone '{zone.id}'")
             results.append(
                 ZoneRisk(
                     zone_id=zone.id,

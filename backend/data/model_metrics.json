@@ -1,10 +1,15 @@
 {
-  "generated_at": "2026-09-19T18:34:53.762754+00:00",
+  "generated_at": "2026-09-20T04:41:49.014926+00:00",
   "n_train_venues": 100,
   "evaluation": "held-out places (group split) + held-out named places",
   "disclaimer": "Ground truth comes from the same synthetic generator; results show the pipeline recovers category behaviour, not real-world accuracy.",
   "data_provenance": {
     "transit_hub_calibration": "Empirically calibrated against Delhi Metro Rail Corporation (DMRC) official ridership records (50.65 Lakh daily journeys peak, 2010-2022 quarterly distributions).",
+    "source_files": [
+      "docs/sources/RS_Session_257_AU_59_B.csv",
+      "docs/sources/RS_Session_248_AU_493.1.csv"
+    ],
+    "source_description": "Rajya Sabha (Indian Parliament) session answers, publicly tabled records.",
     "dmrc_peak_daily_journeys_lakhs": 50.65,
     "quarterly_seasonal_distribution": {
       "1": 0.964,
@@ -14,36 +19,36 @@
     },
     "synthetic_generator": "100 procedurally generated venues across 6 categories in IST"
   },
-  "overall_mae_pct_capacity": 6.77,
+  "overall_mae_pct_capacity": 6.66,
   "baseline_mae_pct_capacity": {
-    "global_mean": 22.28,
-    "category_hour_mean": 10.02
+    "global_mean": 22.2,
+    "category_hour_mean": 9.69
   },
   "by_category": {
     "market": {
-      "mae_pct_capacity": 5.9,
+      "mae_pct_capacity": 5.93,
       "n_places": 2
     },
     "transit_hub": {
-      "mae_pct_capacity": 7.55,
+      "mae_pct_capacity": 8.3,
       "n_places": 2
     },
     "religious_site": {
-      "mae_pct_capacity": 5.39,
+      "mae_pct_capacity": 7.06,
       "n_places": 1
     },
     "campus_ground": {
-      "mae_pct_capacity": 5.09,
+      "mae_pct_capacity": 4.9,
       "n_places": 1
     },
     "food_street": {
-      "mae_pct_capacity": 10.89,
+      "mae_pct_capacity": 9.03,
       "n_places": 2
     },
     "public_square": {
-      "mae_pct_capacity": 4.29,
+      "mae_pct_capacity": 4.07,
       "n_places": 2
     }
   },
-  "ablation_no_category_mae_pct_capacity": 13.13
+  "ablation_no_category_mae_pct_capacity": 13.12
 }

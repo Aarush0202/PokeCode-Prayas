@@ -51,14 +51,14 @@ Measured using `tools/demo_run.py` on Zone `z3` (Market Street, capacity: 900):
 
 ## 5. Known Limitations (Honesty Section)
 
-1. **Synthetic Training Data:**
-   - The machine-learning forecast model is trained on procedurally generated synthetic footfall datasets (`footfall_train.csv`). It recovers synthetic generation rules and proves the multi-horizon pipeline architecture, but has not yet been fitted on multi-year municipal sensor archives.
-2. **Camera Occlusion in Crushes:**
+1. **Bluetooth Device-to-Person Ratio is Unvalidated:**
+   - The Bluetooth device-to-person ratio starts from a fixed baseline estimate rather than a value calibrated against a real deployment. While the system self-adjusts this ratio dynamically when camera and Bluetooth signals overlap, that self-adjustment mechanism has not yet been field-tested in an active venue.
+2. **Forecast Model Trained on Synthetic Baseline Data:**
+   - Our forecast model's accuracy numbers (documented in `model_metrics.json`) are measured on held-out synthetic venues rather than real-world footfall logs, because no public hourly venue sensor dataset currently exists for Indian cities. The benchmark demonstrates pipeline capability and category pattern recovery, but real-world accuracy will depend on calibrating against actual municipal sensor streams.
+3. **Camera Occlusion in Crushes:**
    - In extremely dense crowds ($>4\text{ people/m}^2$), optical detection degrades due to head/shoulder occlusion. This is specifically why Bluetooth radio presence is integrated as a secondary signal.
-3. **Bluetooth MAC Randomization & BLE Ratio:**
-   - Modern iOS and Android handsets rotate random BLE MAC addresses every 15 minutes. BLE device counts are treated as a relative surge indicator and directional trend proxy rather than an absolute head count.
 4. **Held-Out Named Places:**
-   - The 28 named venues across Delhi, Gurugram, Chandigarh, and Mohali (`ch01`–`ch03`, `dl04`–`dl08`, `gg01`–`gg06`, `cd01`–`cd06`, `mo01`–`mo04`, `rl01`–`rl02`, `fs01`–`fs02`) are forecast-only decision-support locations without live IoT sensors. Only `z1`–`z4` have live multi-modal sensor inputs.
+   - The named venues across Indian cities are forecast-only decision-support locations without live IoT sensors. Only instrumented zones (`z1`–`z4`) process live multi-modal sensor streams.
 
 ---
 

@@ -250,6 +250,42 @@ export interface RiskScoreBreakdown {
   totalScore: number;
 }
 
+export interface MetroLineStatus {
+  id: string;
+  name: string;
+  color: string;
+  status: 'NOMINAL' | 'ELEVATED' | 'CONGESTED' | 'DISRUPTED';
+  ridership_daily: number;
+  train_frequency_mins: number;
+  interchange_pressure: number;
+  active_advisories: string[];
+}
+
+export interface MetroStationTelemetry {
+  station_id: string;
+  station_name: string;
+  line_intersections: string[];
+  current_occupancy: number;
+  max_capacity: number;
+  turnstile_throughput_ppm: number;
+  platform_1_density: number;
+  platform_2_density: number;
+  esc_speed_regulation: string;
+  risk_score: number;
+  risk_tier: RiskTier;
+  dmrc_forecast_pressure: number;
+}
+
+export interface MetroOverviewResponse {
+  system_name: string;
+  network_status: string;
+  total_daily_ridership_calibration: number;
+  active_train_count: number;
+  lines: MetroLineStatus[];
+  stations: MetroStationTelemetry[];
+}
+
+
 export function calculateRiskBreakdown(zone: ZoneRisk): RiskScoreBreakdown {
   const occRatio = Math.min(1.2, zone.fused_estimate / Math.max(1, zone.capacity));
   const densityNormalized = Math.round(Math.min(100, occRatio * 100));

@@ -905,9 +905,149 @@ export function mockDeescalateZone(zoneId: string, targetCount?: number): void {
 }
 
 export function mockResetAllZones(): void {
-  liveZonesState.forEach((z) => {
+  for (const z of liveZonesState) {
     mockDeescalateZone(z.zone_id);
-  });
-  liveAlertsState = [];
+  }
 }
+
+export function getMockMetroStatus() {
+  return {
+    system_name: 'Delhi Metro Rail Corporation (DMRC)',
+    network_status: 'ELEVATED_PEAK',
+    total_daily_ridership_calibration: 5065000,
+    active_train_count: 342,
+    lines: [
+      {
+        id: 'yellow',
+        name: 'Yellow Line (Samaypur Badli - Millennium City Centre)',
+        color: '#eab308',
+        status: 'CONGESTED' as const,
+        ridership_daily: 1420000,
+        train_frequency_mins: 2.5,
+        interchange_pressure: 0.84,
+        active_advisories: [
+          'High transfer surge at Rajiv Chowk & Hauz Khas',
+          'Gate throttling active at Gate 2 Rajiv Chowk',
+        ],
+      },
+      {
+        id: 'blue',
+        name: 'Blue Line (Dwarka Sec 21 - Noida Electronic City)',
+        color: '#3b82f6',
+        status: 'ELEVATED' as const,
+        ridership_daily: 1380000,
+        train_frequency_mins: 2.8,
+        interchange_pressure: 0.72,
+        active_advisories: ['Peak hour ingress regulation at Botanical Garden'],
+      },
+      {
+        id: 'violet',
+        name: 'Violet Line (Kashmere Gate - Raja Nahar Singh)',
+        color: '#8b5cf6',
+        status: 'NOMINAL' as const,
+        ridership_daily: 840000,
+        train_frequency_mins: 3.5,
+        interchange_pressure: 0.48,
+        active_advisories: [],
+      },
+      {
+        id: 'magenta',
+        name: 'Magenta Line (Janakpuri West - Botanical Garden)',
+        color: '#ec4899',
+        status: 'ELEVATED' as const,
+        ridership_daily: 710000,
+        train_frequency_mins: 3.8,
+        interchange_pressure: 0.65,
+        active_advisories: ['Hauz Khas underground walkway crowd buildup'],
+      },
+    ],
+    stations: [
+      {
+        station_id: 'dm_z1',
+        station_name: 'Rajiv Chowk Interchange',
+        line_intersections: ['Yellow Line', 'Blue Line'],
+        current_occupancy: 2080,
+        max_capacity: 2500,
+        turnstile_throughput_ppm: 340,
+        platform_1_density: 1.65,
+        platform_2_density: 1.42,
+        esc_speed_regulation: 'REDUCED_0.50M_S',
+        risk_score: 0.83,
+        risk_tier: 'HIGH' as const,
+        dmrc_forecast_pressure: 0.88,
+      },
+      {
+        station_id: 'dm_z2',
+        station_name: 'Kashmere Gate Hub',
+        line_intersections: ['Red Line', 'Yellow Line', 'Violet Line'],
+        current_occupancy: 1920,
+        max_capacity: 2800,
+        turnstile_throughput_ppm: 285,
+        platform_1_density: 1.2,
+        platform_2_density: 1.15,
+        esc_speed_regulation: 'NORMAL_0.75M_S',
+        risk_score: 0.68,
+        risk_tier: 'HIGH' as const,
+        dmrc_forecast_pressure: 0.71,
+      },
+      {
+        station_id: 'dm_z3',
+        station_name: 'Hauz Khas Junction',
+        line_intersections: ['Yellow Line', 'Magenta Line'],
+        current_occupancy: 1240,
+        max_capacity: 1800,
+        turnstile_throughput_ppm: 210,
+        platform_1_density: 1.05,
+        platform_2_density: 0.98,
+        esc_speed_regulation: 'NORMAL_0.75M_S',
+        risk_score: 0.62,
+        risk_tier: 'ELEVATED' as const,
+        dmrc_forecast_pressure: 0.65,
+      },
+      {
+        station_id: 'dm_z4',
+        station_name: 'Millennium City Centre',
+        line_intersections: ['Yellow Line'],
+        current_occupancy: 780,
+        max_capacity: 1500,
+        turnstile_throughput_ppm: 140,
+        platform_1_density: 0.65,
+        platform_2_density: 0.55,
+        esc_speed_regulation: 'NORMAL_0.75M_S',
+        risk_score: 0.35,
+        risk_tier: 'NORMAL' as const,
+        dmrc_forecast_pressure: 0.42,
+      },
+      {
+        station_id: 'dm_z5',
+        station_name: 'Botanical Garden',
+        line_intersections: ['Blue Line', 'Magenta Line'],
+        current_occupancy: 980,
+        max_capacity: 1600,
+        turnstile_throughput_ppm: 180,
+        platform_1_density: 0.82,
+        platform_2_density: 0.78,
+        esc_speed_regulation: 'NORMAL_0.75M_S',
+        risk_score: 0.58,
+        risk_tier: 'ELEVATED' as const,
+        dmrc_forecast_pressure: 0.6,
+      },
+      {
+        station_id: 'dm_z6',
+        station_name: 'Central Secretariat',
+        line_intersections: ['Yellow Line', 'Violet Line'],
+        current_occupancy: 650,
+        max_capacity: 1400,
+        turnstile_throughput_ppm: 120,
+        platform_1_density: 0.5,
+        platform_2_density: 0.48,
+        esc_speed_regulation: 'NORMAL_0.75M_S',
+        risk_score: 0.28,
+        risk_tier: 'NORMAL' as const,
+        dmrc_forecast_pressure: 0.32,
+      },
+    ],
+  };
+}
+
 

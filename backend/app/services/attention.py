@@ -154,7 +154,8 @@ def evaluate_attention_items(now: Optional[datetime] = None) -> AttentionRespons
         try:
             place_risk = fusion.evaluate_zone_risk(np.id)
             all_evaluated.append(place_risk)
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Failed to evaluate risk for named place '{np.id}': {e}")
             continue
 
     act_now_items: List[AttentionItem] = []

@@ -23,6 +23,7 @@ _MODULES = [
     ("planner", "", "Planner"),
     ("planner_parse", "", "Planner Parse"),
     ("attention", "/attention", "Attention"),
+    ("metro", "/metro", "Metro"),
 ]
 
 for _name, _prefix, _tag in _MODULES:
