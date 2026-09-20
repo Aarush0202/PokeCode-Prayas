@@ -11,6 +11,7 @@ import type {
   PlannerParseResponse,
   BeaconSignal,
   VisionSignal,
+  MetroOverviewResponse,
 } from '../types/crowdguard';
 import {
   FIXTURE_ZONES,
@@ -21,6 +22,7 @@ import {
   getMockForecastMetrics,
   getMockPlannerAssess,
   getMockPlannerParse,
+  getMockMetroStatus,
   mockAnalyzeFrame,
   mockSimulateVision,
   mockIngestBeacon,
@@ -389,5 +391,22 @@ export async function refreshEvents(): Promise<{ success: boolean; refreshed: nu
     return { success: false, refreshed: 0 };
   }
 }
+
+export async function getMetroStatus(): Promise<MetroOverviewResponse> {
+  if (MOCK) {
+    await delay(150);
+    return getMockMetroStatus();
+  }
+
+  try {
+    const res = await fetchWithTimeout(`${API_BASE_URL}/v1/metro/status`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[CrowdGuard API] getMetroStatus failed, falling back to mock fixtures:', err);
+    return getMockMetroStatus();
+  }
+}
+
 
 
