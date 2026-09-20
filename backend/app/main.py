@@ -57,7 +57,13 @@ def seed_initial_telemetry():
 async def lifespan(app: FastAPI):
     logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION} [{settings.ENVIRONMENT}]")
     seed_initial_telemetry()
+    if settings.DEMO_TELEMETRY:
+        from app.services.demo_telemetry import start_demo_telemetry, stop_demo_telemetry
+        start_demo_telemetry()
     yield
+    if settings.DEMO_TELEMETRY:
+        from app.services.demo_telemetry import stop_demo_telemetry
+        stop_demo_telemetry()
     logger.info(f"Shutting down {settings.PROJECT_NAME}")
 
 

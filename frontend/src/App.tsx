@@ -276,29 +276,6 @@ export const App: React.FC = () => {
             </button>
             <button
               role="tab"
-              aria-selected={activeTab === 'planner'}
-              className={`tab-btn ${activeTab === 'planner' ? 'active' : ''}`}
-              onClick={() => setActiveTab('planner')}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Layers size={14} />
-              <span>Event Planner</span>
-              <span
-                style={{
-                  fontSize: '0.62rem',
-                  backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                  color: '#60a5fa',
-                  padding: '1px 5px',
-                  borderRadius: 'var(--radius-full)',
-                  fontWeight: 800,
-                  letterSpacing: '0.04em',
-                }}
-              >
-                BETA
-              </span>
-            </button>
-            <button
-              role="tab"
               aria-selected={activeTab === 'metro'}
               className={`tab-btn ${activeTab === 'metro' ? 'active' : ''}`}
               onClick={() => setActiveTab('metro')}
@@ -320,6 +297,29 @@ export const App: React.FC = () => {
                 DMRC ML
               </span>
             </button>
+            <button
+              role="tab"
+              aria-selected={activeTab === 'planner'}
+              className={`tab-btn ${activeTab === 'planner' ? 'active' : ''}`}
+              onClick={() => setActiveTab('planner')}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Layers size={14} />
+              <span>Event Planner</span>
+              <span
+                style={{
+                  fontSize: '0.62rem',
+                  backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                  color: '#60a5fa',
+                  padding: '1px 5px',
+                  borderRadius: 'var(--radius-full)',
+                  fontWeight: 800,
+                  letterSpacing: '0.04em',
+                }}
+              >
+                BETA
+              </span>
+            </button>
           </div>
 
           {/* Operational Status & Telemetry Pill */}
@@ -330,7 +330,7 @@ export const App: React.FC = () => {
             >
               <span className={`indicator-dot ${degraded ? 'indicator-degraded' : 'indicator-live'}`} />
               <span style={{ color: 'var(--text-primary)' }}>
-                {degraded ? 'SAMPLE DATA' : 'LIVE'}
+                {degraded ? 'SAMPLE DATA' : 'DEMO TELEMETRY'}
               </span>
               <span style={{ color: 'var(--text-muted)' }} className="num-tabular">
                 ({secondsAgo}s)
