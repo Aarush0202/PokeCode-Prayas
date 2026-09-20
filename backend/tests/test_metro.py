@@ -28,3 +28,14 @@ def test_get_metro_stations():
     data = response.json()
     assert isinstance(data, list)
     assert any(st["station_id"] == "dm_z1" for st in data)
+
+
+def test_predict_metro_traffic():
+    response = client.get("/api/v1/metro/predict?station_id=dm_z1&hours=12")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["station_id"] == "dm_z1"
+    assert data["forecast_horizon_hours"] == 12
+    assert len(data["points"]) == 12
+    assert "recommended_mitigation" in data
+

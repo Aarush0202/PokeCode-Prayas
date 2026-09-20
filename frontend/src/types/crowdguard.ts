@@ -285,6 +285,27 @@ export interface MetroOverviewResponse {
   stations: MetroStationTelemetry[];
 }
 
+export interface MetroForecastPoint {
+  timestamp: string;
+  predicted_occupancy: number;
+  max_capacity: number;
+  predicted_ratio: number;
+  risk_tier: RiskTier;
+  risk_score: number;
+  primary_driver: string;
+}
+
+export interface MetroPredictionResponse {
+  station_id: string;
+  station_name: string;
+  forecast_horizon_hours: number;
+  predicted_peak_time: string;
+  predicted_peak_occupancy: number;
+  predicted_peak_tier: RiskTier;
+  recommended_mitigation: string;
+  points: MetroForecastPoint[];
+}
+
 
 export function calculateRiskBreakdown(zone: ZoneRisk): RiskScoreBreakdown {
   const occRatio = Math.min(1.2, zone.fused_estimate / Math.max(1, zone.capacity));

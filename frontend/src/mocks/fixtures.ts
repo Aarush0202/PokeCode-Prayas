@@ -1,6 +1,7 @@
 import type {
   Zone,
   ZoneRisk,
+  RiskTier,
   RiskLiveResponse,
   Alert,
   AlertsResponse,
@@ -16,6 +17,8 @@ import type {
   PlannerVerdict,
   PlannerEventType,
   PlannerDrawLevel,
+  MetroForecastPoint,
+  MetroPredictionResponse,
 } from '../types/crowdguard';
 
 export const FIXTURE_ZONES: Zone[] = [
@@ -1047,6 +1050,72 @@ export function getMockMetroStatus() {
         dmrc_forecast_pressure: 0.32,
       },
     ],
+  };
+}
+
+export function getMockMetroPrediction(stationId: string = 'dm_z1', hours: number = 24): MetroPredictionResponse {
+  const points: MetroForecastPoint[] = [];
+  const now = new Date();
+  const capacity = stationId === 'dm_z2' ? 2800 : stationId === 'dm_z1' ? 2500 : 1800;
+
+  let maxOcc = 0;
+  let maxTime = '';
+  let maxTier: RiskTier = 'NORMAL';
+
+  for (let i = 0; i < hours; i++) {
+    const t = new Date(now.getTime() + i * 3600 * 1000);
+    const hourIST = (t.getUTCHours() + 5 + Math.floor((t.getUTCMinutes() + 30) / 60)) % 24;
+
+    // Diurnal commute pattern with 9 AM & 6 PM peaks
+    let factor = 0.3;
+    if (hourIST >= 8 && hourIST <= 10) factor = 0.82;
+    else if (hourIST >= 17 && hourIST <= 20) factor = 0.88;
+    else if (hourIST >= 11 && hourIST <= 16) factor = 0.55;
+
+    const estOcc = Math.round(capacity * factor);
+    const ratio = Number((estOcc / capacity).toFixed(2));
+
+    let tier: RiskTier = 'NORMAL';
+    if (ratio >= 0.85) tier = 'HIGH';
+    else if (ratio >= 0.65) tier = 'ELEVATED';
+
+    if (estOcc > maxOcc) {
+      maxOcc = estOcc;
+      maxTime = t.toISOString();
+      maxTier = tier;
+    }
+
+    points.push({
+      timestamp: t.toISOString(),
+      predicted_occupancy: estOcc,
+      max_capacity: capacity,
+      predicted_ratio: ratio,
+      risk_tier: tier,
+      risk_score: ratio,
+      primary_driver: hourIST >= 17 && hourIST <= 20 ? 'Evening Commute & Yellow Line Transfer Peak' : 'Diurnal Base Transit Flow',
+    });
+  }
+
+  const nameMap: Record<string, string> = {
+    dm_z1: 'Rajiv Chowk Interchange',
+    dm_z2: 'Kashmere Gate Hub',
+    dm_z3: 'Hauz Khas Junction',
+    dm_z4: 'Millennium City Centre',
+    dm_z5: 'Botanical Garden',
+    dm_z6: 'Central Secretariat',
+  };
+
+  return {
+    station_id: stationId,
+    station_name: nameMap[stationId] || 'Delhi Metro Hub',
+    forecast_horizon_hours: hours,
+    predicted_peak_time: maxTime,
+    predicted_peak_occupancy: maxOcc,
+    predicted_peak_tier: maxTier,
+    recommended_mitigation: maxTier === 'HIGH'
+      ? 'Inject 3 empty rakes on Yellow Line from Samaypur Badli during 17:00-19:00 peak surge.'
+      : 'Maintain standard 2.5 min train headway; regulate Gate 2 turnstiles if platform density > 1.2 p/m².',
+    points,
   };
 }
 
