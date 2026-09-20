@@ -216,6 +216,9 @@ def resolve_zone(zone_id: str) -> Optional[Zone]:
     if zone_id in ZONE_BY_ID:
         return ZONE_BY_ID[zone_id]
 
+    if zone_id in CANONICAL_NAMED_PLACES:
+        return CANONICAL_NAMED_PLACES[zone_id]
+
     try:
         from app.data.named_places import NAMED_PLACES
         for np_zone in NAMED_PLACES:
@@ -224,7 +227,7 @@ def resolve_zone(zone_id: str) -> Optional[Zone]:
     except ImportError:
         pass
 
-    return CANONICAL_NAMED_PLACES.get(zone_id)
+    return None
 
 
 def get_all_valid_zone_ids() -> List[str]:
@@ -280,6 +283,7 @@ def compute_category_baseline_fraction(category: str, hour_ist: int, is_weekend:
         base_frac = 0.03
     elif category == "transit_hub":
         # Calibrated against official DMRC passenger journey data (50.65 Lakh daily journeys peak)
+        # Source: Rajya Sabha session answers, docs/sources/RS_Session_257_AU_59_B.csv & docs/sources/RS_Session_248_AU_493_1.csv
         if not is_weekend:
             if 8 <= hour_ist <= 10:
                 base_frac = 0.74
@@ -618,8 +622,8 @@ def baseline_ratio_series(zone: Any, timestamps: List[datetime]) -> List[float]:
         temp_c, rain_mm = 28.0, 0.0
         try:
             temp_c, rain_mm = event_fetcher.get_weather_for_zone_hour(zone_id, ts)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Failed to fetch weather for zone '{zone_id}' at {ts}: {e}")
 
         ratio: Optional[float] = None
         if model is not None:

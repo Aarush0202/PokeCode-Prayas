@@ -32,15 +32,15 @@ NAMED_PLACES: List[Zone] = [
         category=VenueCategory.MARKET,
         city="Delhi",
     ),
-    # ch02: Major public square / commercial promenade in central Delhi
+    # ch02: Rajiv Chowk Metro interchange hub
     Zone(
         id="ch02",
-        name="Connaught Place Inner Circle",
-        capacity=8000,
-        area_sqm=10000.0,
-        lat=28.6315,  # VERIFY: OSM node 192837460 (Connaught Place inner ring)
-        lon=77.2167,  # VERIFY: OSM node 192837460
-        category=VenueCategory.PUBLIC_SQUARE,
+        name="Rajiv Chowk Metro Interchange",
+        capacity=3500,
+        area_sqm=3000.0,
+        lat=28.6328,
+        lon=77.2195,
+        category=VenueCategory.TRANSIT_HUB,
         city="Delhi",
     ),
     # ch03: High-density South Delhi retail hub

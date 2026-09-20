@@ -32,7 +32,11 @@ THRESHOLD_ELEVATED: float = 0.40  # tunable heuristic, default hand-chosen
 THRESHOLD_HIGH: float = 0.65  # tunable heuristic, default hand-chosen
 THRESHOLD_CRITICAL: float = 0.85  # tunable heuristic, default hand-chosen
 
-# IoT beacon penetration multiplier
+# IoT beacon penetration multiplier:
+# This multiplier is an unvalidated assumption based on general estimates of smartphone/Bluetooth-carrying
+# rates in a crowd, not calibrated against any real venue or real crowd count. Note that the EWMA dynamic
+# calibration logic in fusion.py adjusts per-zone scale live when camera and Bluetooth data are both fresh
+# and agree, but this starting value itself is unvalidated.
 BEACON_MULTIPLIER: float = float(os.getenv("BEACON_MULTIPLIER", "1.6"))  # regional mobile penetration factor
 
 # BLE Dynamic Calibration parameters (EWMA)

@@ -42,8 +42,8 @@ def get_baseline_ratio_series(zone: Zone, timestamps: List[datetime]) -> Tuple[L
         from app.services import forecaster
         if hasattr(forecaster, "baseline_ratio_series"):
             return forecaster.baseline_ratio_series(zone, timestamps), True
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning(f"Failed to fetch forecaster baseline_ratio_series: {e}")
 
     # Statistical diurnal baseline fallback
     ratios: List[float] = []

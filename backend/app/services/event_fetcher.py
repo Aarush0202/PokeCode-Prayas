@@ -55,8 +55,9 @@ def fetch_weather_open_meteo(zone_id: str) -> Tuple[Dict[str, Any], Optional[str
         f"&hourly=temperature_2m,precipitation&forecast_days=3"
     )
 
+    headers = {"User-Agent": "CrowdGuard-SafetyPlatform/1.0 (https://github.com/Aarush0202/PokeCode-Prayas)"}
     try:
-        with httpx.Client(timeout=5.0) as client:
+        with httpx.Client(timeout=5.0, headers=headers) as client:
             resp = client.get(url)
             resp.raise_for_status()
             data = resp.json()
